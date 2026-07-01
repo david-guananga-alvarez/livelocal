@@ -1,0 +1,5 @@
+import React from 'react';
+import { RotateCcw } from 'lucide-react';
+import { resetState } from '../../state/store';
+import { statusLabel } from '../matching/matching';
+export default function AdminView({ state, setState }){ return <div className="stack"><section className="hero compact"><p className="eyebrow">Admin</p><h1>Operaciones LiveLocal</h1><button className="danger" onClick={()=>setState(resetState())}><RotateCcw size={16}/> Reset demo</button></section><section className="card"><h2>Peticiones</h2><div className="table">{state.requests.length===0?<p className="muted">Sin peticiones.</p>:state.requests.map(r=><div className="tableRow" key={r.id}><b>{r.zoneName}</b><span>{statusLabel(r.status)}</span><span>{r.localId||'Sin local'}</span><span>{r.price} €</span></div>)}</div></section><section className="card"><h2>Locales</h2>{state.locals.map(l=><div className="tableRow" key={l.id}><b>{l.name}</b><span>{l.available?'Disponible':'Offline'}</span><span>{l.zones.join(', ')}</span></div>)}</section></div> }
