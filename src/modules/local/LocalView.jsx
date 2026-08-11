@@ -1,13 +1,52 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { UserCheck, Play, LocateFixed } from 'lucide-react';
 import { zones } from '../../data/seed';
 import { statusLabel } from '../matching/matching';
 import { distanceKm, estimateEtaMinutes, formatDistance, getBrowserLocation } from '../location/location';
 import SessionWorkspace from '../session/SessionWorkspace';
+import { getRequests } from '../requests/requestsService';
 
 export default function LocalView({ state, setState }){
  const local=state.locals.find(l=>l.id===state.activeLocalId) || state.locals[0];
  const [geoStatus, setGeoStatus] = useState('');
+
+useEffect(() => {
+  async function loadRequests() {
+    try {
+      const rows = await getRequests();
+
+      const mappedRequests = rows.map(row => {
+        const zoneData = zones.find(z => z.id === row.zone);
+
+        return {
+          id: row.id,
+          zoneId: row.zone,
+          zoneName: zoneData?.name ?? row.zone,
+          zoneCenter: zoneData?.center ?? null,
+          duration: row.duration_minutes,
+          price: row.duration_minutes === 15 ? 15 : row.duration_minutes === 30 ? 25 : 35,
+          notes: row.description,
+          status: row.status,
+          createdAt: row.created_at,
+          localId: null,
+          candidateLocalIds: [],
+          bestEta: zoneData?.eta ?? null,
+          bestDistanceKm: null,
+        };
+      });
+
+      setState(prev => ({
+        ...prev,
+        requests: mappedRequests,
+      }));
+    } catch (error) {
+      console.error('Error cargando peticiones desde Supabase:', error);
+    }
+  }
+
+  loadRequests();
+}, []);
+
  const enrichedRequests = useMemo(()=>state.requests.map(r=>{
    const km = distanceKm(local.location, r.zoneCenter || zones.find(z=>z.id===r.zoneId)?.center);
    return {...r, distanceKm: km, etaMinutes: estimateEtaMinutes(km)};
