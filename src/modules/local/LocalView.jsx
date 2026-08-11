@@ -5,6 +5,7 @@ import { statusLabel } from '../matching/matching';
 import { distanceKm, estimateEtaMinutes, formatDistance, getBrowserLocation } from '../location/location';
 import SessionWorkspace from '../session/SessionWorkspace';
 import { getRequests } from '../requests/requestsService';
+import { supabase } from '../auth/supabaseClient';
 
 export default function LocalView({ state, setState }){
  const local=state.locals.find(l=>l.id===state.activeLocalId) || state.locals[0];
@@ -45,6 +46,27 @@ useEffect(() => {
   }
 
   loadRequests();
+}, []);
+
+useEffect(() => {
+  const channel = supabase
+    .channel('requests-realtime')
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'requests',
+      },
+      payload => {
+        console.log('Cambio realtime en requests:', payload);
+      }
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
 }, []);
 
  const enrichedRequests = useMemo(()=>state.requests.map(r=>{
