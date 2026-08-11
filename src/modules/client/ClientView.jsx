@@ -1,11 +1,11 @@
 import React, { useMemo, useState } from 'react';
 import { Search, Video, CheckCircle, MapPin } from 'lucide-react';
 import { zones, prices } from '../../data/seed';
-import { uid } from '../../state/store';
 import { getMatchingLocals, statusLabel } from '../matching/matching';
 import { formatDistance } from '../location/location';
 import ZoneMap from '../../components/ZoneMap';
 import SessionWorkspace from '../session/SessionWorkspace';
+import { createRequest } from '../requests/requestsService';
 
 export default function ClientView({ state, setState }){
  const [zone,setZone]=useState('gothic');
@@ -15,15 +15,25 @@ export default function ClientView({ state, setState }){
  const selectedZone = zones.find(z=>z.id===zone);
  const matches = useMemo(()=>getMatchingLocals(state.locals, zone, zones), [state.locals, zone]);
 
- function requestNow(){
+async function requestNow(){
    const best = matches[0];
    const req={
-     id:uid('req'), zoneId:zone, zoneName:selectedZone.name, zoneCenter:selectedZone.center,
+     id: crypto.randomUUID(), zoneId:zone, zoneName:selectedZone.name, zoneCenter:selectedZone.center,
      duration, price:prices[duration], notes, status:'pending', createdAt:new Date().toLocaleString(),
      localId:null, candidateLocalIds:matches.map(m=>m.id), bestEta:best?.etaMinutes ?? selectedZone.eta,
      bestDistanceKm:best?.distanceKm ?? null
    };
-   setState({...state, requests:[...state.requests, req]});
+   try {
+     await createRequest(req);
+
+     setState({
+       ...state,
+       requests: [...state.requests, req],
+     });
+   } catch (error) {
+     console.error('Error creando petición en Supabase:', error);
+     alert('No se pudo crear la petición');
+   }
  }
  function startSession(){ setState({...state, requests:state.requests.map(r=>r.id===active.id?{...r,status:'in_progress'}:r)}); }
  function complete(){ setState({...state, requests:state.requests.map(r=>r.id===active.id?{...r,status:'completed'}:r)}); }
