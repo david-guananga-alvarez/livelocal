@@ -6,8 +6,10 @@ import { distanceKm, estimateEtaMinutes, formatDistance, getBrowserLocation } fr
 import SessionWorkspace from '../session/SessionWorkspace';
 import { getRequests } from '../requests/requestsService';
 import { supabase } from '../auth/supabaseClient';
+import { useAuth } from '../auth/AuthProvider';
 
 export default function LocalView({ state, setState }){
+ const { user } = useAuth();
  const local=state.locals.find(l=>l.id===state.activeLocalId) || state.locals[0];
  const [geoStatus, setGeoStatus] = useState('');
 
@@ -74,7 +76,12 @@ useEffect(() => {
    const km = distanceKm(local.location, r.zoneCenter || zones.find(z=>z.id===r.zoneId)?.center);
    return {...r, distanceKm: km, etaMinutes: estimateEtaMinutes(km)};
  }), [state.requests, local.location]);
- const incoming=enrichedRequests.filter(r=>r.status==='pending' && (local.zones.includes(r.zoneId) || r.distanceKm <= 3));
+ const incoming = enrichedRequests.filter(
+  r =>
+    r.status === 'pending' &&
+    r.clientId !== user?.id &&
+    (local.zones.includes(r.zoneId) || r.distanceKm <= 3)
+);
  const mine=enrichedRequests.find(r=>r.localId===local.id && r.status!=='completed'&&r.status!=='cancelled');
  function accept(req){ setState({...state, requests:state.requests.map(r=>r.id===req.id?{...r,status:'matched',localId:local.id, acceptedAt:new Date().toLocaleString()}:r)}); }
  function start(){ setState({...state, requests:state.requests.map(r=>r.id===mine.id?{...r,status:'in_progress'}:r)}); }
