@@ -21,6 +21,7 @@ useEffect(() => {
 
         return {
           id: row.id,
+          clientId: row.client_id,
           zoneId: row.zone,
           zoneName: zoneData?.name ?? row.zone,
           zoneCenter: zoneData?.center ?? null,
