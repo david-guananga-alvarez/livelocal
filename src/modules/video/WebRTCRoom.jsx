@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Camera, Mic, PhoneOff } from 'lucide-react';
+
 import { supabase } from '../auth/supabaseClient';
+import { useAuth } from '../auth/AuthProvider';
 
 const iceServers = [
       {
@@ -28,6 +30,8 @@ const iceServers = [
       },
   ];
 export default function WebRTCRoom({ roomId, role }) {
+  const { user } = useAuth();
+
   const localVideo = useRef(null);
   const remoteVideo = useRef(null);
 
@@ -54,7 +58,10 @@ export default function WebRTCRoom({ roomId, role }) {
       try {
         await pc.addIceCandidate(candidate);
       } catch (error) {
-        console.warn('ICE pendiente no aplicado:', error);
+        console.warn(
+          'ICE pendiente no aplicado:',
+          error
+        );
       }
     }
 
@@ -62,6 +69,7 @@ export default function WebRTCRoom({ roomId, role }) {
   }
 
   async function createAndSendOffer(pc) {
+    // Evita crear varias ofertas si Presence hace varios sync
     if (offerSentRef.current) return;
 
     offerSentRef.current = true;
@@ -79,28 +87,31 @@ export default function WebRTCRoom({ roomId, role }) {
   }
 
   async function handleSignal(data, pc) {
-    if (!data || data.from === role) return;
+    if (!data) return;
 
-    if (data.type === 'ready') {
-      if (role === 'Cliente') {
-        await createAndSendOffer(pc);
-      }
+    // Ignorar nuestros propios mensajes
+    if (data.fromUserId === user?.id) return;
 
-      return;
-    }
-
+    // LOCAL recibe oferta
     if (data.type === 'offer') {
       if (role !== 'Local') return;
 
-      setStatus('Oferta recibida. Conectando...');
+      setStatus(
+        'Oferta recibida. Conectando...'
+      );
 
-      await pc.setRemoteDescription(data.offer);
+      await pc.setRemoteDescription(
+        data.offer
+      );
 
       await flushPendingIce(pc);
 
-      const answer = await pc.createAnswer();
+      const answer =
+        await pc.createAnswer();
 
-      await pc.setLocalDescription(answer);
+      await pc.setLocalDescription(
+        answer
+      );
 
       await send({
         type: 'answer',
@@ -110,28 +121,42 @@ export default function WebRTCRoom({ roomId, role }) {
       return;
     }
 
+    // CLIENTE recibe respuesta
     if (data.type === 'answer') {
       if (role !== 'Cliente') return;
 
-      setStatus('Respuesta recibida. Estableciendo conexión...');
+      setStatus(
+        'Respuesta recibida. Estableciendo conexión...'
+      );
 
-      await pc.setRemoteDescription(data.answer);
+      await pc.setRemoteDescription(
+        data.answer
+      );
 
       await flushPendingIce(pc);
 
       return;
     }
 
+    // ICE candidates
     if (data.type === 'ice') {
       if (!pc.remoteDescription) {
-        pendingIceRef.current.push(data.candidate);
+        pendingIceRef.current.push(
+          data.candidate
+        );
+
         return;
       }
 
       try {
-        await pc.addIceCandidate(data.candidate);
+        await pc.addIceCandidate(
+          data.candidate
+        );
       } catch (error) {
-        console.warn('ICE candidate no aplicado:', error);
+        console.warn(
+          'ICE candidate no aplicado:',
+          error
+        );
       }
     }
   }
@@ -139,144 +164,328 @@ export default function WebRTCRoom({ roomId, role }) {
   async function startCall() {
     try {
       setError('');
-      setStatus('Pidiendo cámara y micrófono...');
+      setStatus(
+        'Pidiendo cámara y micrófono...'
+      );
 
       if (!supabase) {
-        throw new Error('Supabase no está configurado');
+        throw new Error(
+          'Supabase no está configurado'
+        );
       }
 
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: true,
-      });
+      if (!user?.id) {
+        throw new Error(
+          'Usuario no autenticado'
+        );
+      }
+
+      // -------------------------
+      // CÁMARA + MICRÓFONO
+      // -------------------------
+
+      const stream =
+        await navigator.mediaDevices.getUserMedia(
+          {
+            video: true,
+            audio: true,
+          }
+        );
 
       if (localVideo.current) {
-        localVideo.current.srcObject = stream;
+        localVideo.current.srcObject =
+          stream;
       }
 
-      const pc = new RTCPeerConnection({
-        iceServers,
-      });
+      // -------------------------
+      // WEBRTC
+      // -------------------------
+
+      const pc =
+        new RTCPeerConnection({
+          iceServers,
+        });
 
       pcRef.current = pc;
 
-      pc.oniceconnectionstatechange = () => {
-  console.log('ICE state:', pc.iceConnectionState);
-};
+      // Diagnóstico ICE
+      pc.oniceconnectionstatechange =
+        () => {
+          console.log(
+            'ICE state:',
+            pc.iceConnectionState
+          );
+        };
 
-pc.onicegatheringstatechange = () => {
-  console.log('ICE gathering:', pc.iceGatheringState);
-};
+      pc.onicegatheringstatechange =
+        () => {
+          console.log(
+            'ICE gathering:',
+            pc.iceGatheringState
+          );
+        };
 
-pc.onicecandidateerror = event => {
-  console.error('ICE candidate error:', event);
-};
+      pc.onicecandidateerror =
+        event => {
+          console.error(
+            'ICE candidate error:',
+            event
+          );
+        };
 
-      stream.getTracks().forEach(track => {
-        pc.addTrack(track, stream);
-      });
+      // Añadir audio/vídeo al PeerConnection
+      stream
+        .getTracks()
+        .forEach(track => {
+          pc.addTrack(
+            track,
+            stream
+          );
+        });
 
+      // Vídeo remoto
       pc.ontrack = event => {
         if (remoteVideo.current) {
-          remoteVideo.current.srcObject = event.streams[0];
+          remoteVideo.current.srcObject =
+            event.streams[0];
         }
 
-        setStatus('Conectado con la otra persona');
+        setStatus(
+          'Conectado con la otra persona'
+        );
       };
 
+      // Enviar ICE por Supabase
       pc.onicecandidate = event => {
         if (event.candidate) {
           send({
             type: 'ice',
-            candidate: event.candidate,
+            candidate:
+              event.candidate,
           });
         }
       };
 
-      pc.onconnectionstatechange = () => {
-        console.log(
-          'WebRTC connection state:',
-          pc.connectionState
-        );
-
-        if (pc.connectionState === 'connected') {
-          setStatus('Videollamada conectada');
-        }
-
-        if (pc.connectionState === 'failed') {
-          setStatus('No se pudo establecer la conexión');
-        }
-
-        if (pc.connectionState === 'disconnected') {
-          setStatus('Conexión interrumpida');
-        }
-      };
-
-      const channel = supabase
-        .channel(`webrtc-${roomId}`)
-        .on(
-          'broadcast',
-          {
-            event: 'signal',
-          },
-          async ({ payload }) => {
-            try {
-              await handleSignal(payload, pc);
-            } catch (error) {
-              console.error(
-                'Error procesando señal WebRTC:',
-                error
-              );
-
-              setError(
-                'Error estableciendo la videollamada.'
-              );
-            }
-          }
-        );
-
-      channelRef.current = channel;
-
-      await new Promise((resolve, reject) => {
-        channel.subscribe((status, subscribeError) => {
+      pc.onconnectionstatechange =
+        () => {
           console.log(
-            `Realtime WebRTC ${roomId}:`,
-            status
+            'WebRTC connection state:',
+            pc.connectionState
           );
 
-          if (status === 'SUBSCRIBED') {
-            resolve();
+          if (
+            pc.connectionState ===
+            'connected'
+          ) {
+            setStatus(
+              'Videollamada conectada'
+            );
           }
 
           if (
-            status === 'CHANNEL_ERROR' ||
-            status === 'TIMED_OUT'
+            pc.connectionState ===
+            'failed'
           ) {
-            reject(
-              subscribeError ||
-                new Error(`Realtime: ${status}`)
+            setStatus(
+              'No se pudo establecer la conexión'
             );
           }
-        });
+
+          if (
+            pc.connectionState ===
+            'disconnected'
+          ) {
+            setStatus(
+              'Conexión interrumpida'
+            );
+          }
+        };
+
+      // -------------------------
+      // SUPABASE REALTIME
+      // -------------------------
+
+      const channel =
+        supabase.channel(
+          `webrtc-${roomId}`,
+          {
+            config: {
+              presence: {
+                key: user.id,
+              },
+            },
+          }
+        );
+
+      channelRef.current =
+        channel;
+
+      // -------------------------
+      // PRESENCE
+      // -------------------------
+
+      channel.on(
+        'presence',
+        {
+          event: 'sync',
+        },
+        async () => {
+          const presenceState =
+            channel.presenceState();
+
+          const participants =
+            Object.values(
+              presenceState
+            ).flat();
+
+          console.log(
+            'Participantes en sala:',
+            participants
+          );
+
+          const hasClient =
+            participants.some(
+              participant =>
+                participant.role ===
+                'Cliente'
+            );
+
+          const hasLocal =
+            participants.some(
+              participant =>
+                participant.role ===
+                'Local'
+            );
+
+          // Los dos ya están presentes
+          if (
+            hasClient &&
+            hasLocal
+          ) {
+            // Cliente siempre genera
+            // la oferta WebRTC
+            if (
+              role === 'Cliente'
+            ) {
+              await createAndSendOffer(
+                pc
+              );
+            } else {
+              setStatus(
+                'Cliente conectado. Preparando llamada...'
+              );
+            }
+
+            return;
+          }
+
+          // Todavía falta alguien
+          if (
+            role === 'Cliente'
+          ) {
+            setStatus(
+              'Esperando al local...'
+            );
+          } else {
+            setStatus(
+              'Esperando al cliente...'
+            );
+          }
+        }
+      );
+
+      // -------------------------
+      // SIGNALING WEBRTC
+      // -------------------------
+
+      channel.on(
+        'broadcast',
+        {
+          event: 'signal',
+        },
+        async ({ payload }) => {
+          try {
+            await handleSignal(
+              payload,
+              pc
+            );
+          } catch (error) {
+            console.error(
+              'Error procesando señal WebRTC:',
+              error
+            );
+
+            setError(
+              'Error estableciendo la videollamada.'
+            );
+          }
+        }
+      );
+
+      // -------------------------
+      // SUSCRIBIR CANAL
+      // -------------------------
+
+      await new Promise(
+        (resolve, reject) => {
+          channel.subscribe(
+            (
+              realtimeStatus,
+              subscribeError
+            ) => {
+              console.log(
+                `Realtime WebRTC ${roomId}:`,
+                realtimeStatus
+              );
+
+              if (
+                realtimeStatus ===
+                'SUBSCRIBED'
+              ) {
+                resolve();
+              }
+
+              if (
+                realtimeStatus ===
+                  'CHANNEL_ERROR' ||
+                realtimeStatus ===
+                  'TIMED_OUT'
+              ) {
+                reject(
+                  subscribeError ||
+                    new Error(
+                      `Realtime: ${realtimeStatus}`
+                    )
+                );
+              }
+            }
+          );
+        }
+      );
+
+      // -------------------------
+      // REGISTRAR PRESENCIA
+      // -------------------------
+
+      await channel.track({
+        userId: user.id,
+        role,
+        joinedAt:
+          new Date().toISOString(),
       });
 
       setStarted(true);
 
-      if (role === 'Local') {
-        setStatus(
-          'Sala preparada. Avisando al cliente...'
-        );
-
-        await send({
-          type: 'ready',
-        });
-      } else {
-        setStatus(
-          'Esperando que el local entre en la sala...'
-        );
-      }
+      setStatus(
+        role === 'Cliente'
+          ? 'Esperando al local...'
+          : 'Esperando al cliente...'
+      );
     } catch (error) {
-      console.error('Error iniciando videollamada:', error);
+      console.error(
+        'Error iniciando videollamada:',
+        error
+      );
 
       setError(
         error?.message ||
@@ -287,18 +496,33 @@ pc.onicecandidateerror = event => {
     }
   }
 
+  // -------------------------
+  // SIGNALING SEND
+  // -------------------------
+
   async function send(payload) {
-    if (!channelRef.current) return;
+    if (!channelRef.current) {
+      return;
+    }
 
     await channelRef.current.send({
       type: 'broadcast',
       event: 'signal',
       payload: {
         ...payload,
-        from: role,
+
+        // Mejor que comparar únicamente
+        // Cliente / Local
+        fromUserId: user?.id,
+
+        fromRole: role,
       },
     });
   }
+
+  // -------------------------
+  // COLGAR
+  // -------------------------
 
   function stopCall() {
     const pc = pcRef.current;
@@ -307,8 +531,13 @@ pc.onicecandidateerror = event => {
       pc.close();
     }
 
-    if (channelRef.current && supabase) {
-      supabase.removeChannel(channelRef.current);
+    if (
+      channelRef.current &&
+      supabase
+    ) {
+      supabase.removeChannel(
+        channelRef.current
+      );
     }
 
     const videos = [
@@ -320,7 +549,9 @@ pc.onicecandidateerror = event => {
       if (video?.srcObject) {
         video.srcObject
           .getTracks()
-          .forEach(track => track.stop());
+          .forEach(track =>
+            track.stop()
+          );
 
         video.srcObject = null;
       }
@@ -336,15 +567,22 @@ pc.onicecandidateerror = event => {
     setStatus('Sala detenida');
   }
 
+  // -------------------------
+  // UI
+  // -------------------------
+
   return (
     <section className="card videoRoom">
       <div className="sectionHeader">
         <div>
-          <h3>Videollamada LiveLocal</h3>
+          <h3>
+            Videollamada LiveLocal
+          </h3>
 
           <p className="muted">
-            WebRTC integrado con señalización mediante
-            Supabase Realtime.
+            WebRTC integrado con
+            señalización y presencia
+            mediante Supabase Realtime.
           </p>
         </div>
 
@@ -357,7 +595,9 @@ pc.onicecandidateerror = event => {
             Colgar
           </button>
         ) : (
-          <button onClick={startCall}>
+          <button
+            onClick={startCall}
+          >
             <Camera size={16} />
             Entrar a la sala
           </button>
@@ -373,7 +613,9 @@ pc.onicecandidateerror = event => {
             playsInline
           />
 
-          <span>Tú ({role})</span>
+          <span>
+            Tú ({role})
+          </span>
         </div>
 
         <div>
@@ -383,7 +625,9 @@ pc.onicecandidateerror = event => {
             playsInline
           />
 
-          <span>Otra persona</span>
+          <span>
+            Otra persona
+          </span>
         </div>
       </div>
 
@@ -393,11 +637,14 @@ pc.onicecandidateerror = event => {
       </p>
 
       {error && (
-        <p className="error">{error}</p>
+        <p className="error">
+          {error}
+        </p>
       )}
 
       <p className="hint">
-        Sala identificada por la petición {roomId}.
+        Sala identificada por la
+        petición {roomId}.
       </p>
     </section>
   );
