@@ -43,3 +43,23 @@ export async function getRequests() {
 
   return data;
 }
+
+export async function acceptRequest(requestId, localId) {
+  if (!supabase) {
+    throw new Error('Supabase no está configurado');
+  }
+
+  const { data, error } = await supabase
+    .from('requests')
+    .update({
+      status: 'matched',
+      local_id: localId,
+    })
+    .eq('id', requestId)
+    .select()
+    .single();
+
+  if (error) throw error;
+
+  return data;
+}

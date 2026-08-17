@@ -4,7 +4,11 @@ import { zones } from '../../data/seed';
 import { statusLabel } from '../matching/matching';
 import { distanceKm, estimateEtaMinutes, formatDistance, getBrowserLocation } from '../location/location';
 import SessionWorkspace from '../session/SessionWorkspace';
-import { getRequests } from '../requests/requestsService';
+import {
+  getRequests,
+  acceptRequest
+} from '../requests/requestsService';
+
 import { supabase } from '../auth/supabaseClient';
 import { useAuth } from '../auth/AuthProvider';
 
@@ -24,6 +28,7 @@ useEffect(() => {
         return {
           id: row.id,
           clientId: row.client_id,
+          localId: row.local_id,
           zoneId: row.zone,
           zoneName: zoneData?.name ?? row.zone,
           zoneCenter: zoneData?.center ?? null,
@@ -32,7 +37,6 @@ useEffect(() => {
           notes: row.description,
           status: row.status,
           createdAt: row.created_at,
-          localId: null,
           candidateLocalIds: [],
           bestEta: zoneData?.eta ?? null,
           bestDistanceKm: null,
@@ -83,7 +87,28 @@ useEffect(() => {
     (local.zones.includes(r.zoneId) || r.distanceKm <= 3)
 );
  const mine=enrichedRequests.find(r=>r.localId===local.id && r.status!=='completed'&&r.status!=='cancelled');
- function accept(req){ setState({...state, requests:state.requests.map(r=>r.id===req.id?{...r,status:'matched',localId:local.id, acceptedAt:new Date().toLocaleString()}:r)}); }
+ async function accept(req) {
+  try {
+    await acceptRequest(req.id, local.id);
+
+    setState(prev => ({
+      ...prev,
+      requests: prev.requests.map(r =>
+        r.id === req.id
+          ? {
+              ...r,
+              status: 'matched',
+              localId: local.id,
+              acceptedAt: new Date().toLocaleString(),
+            }
+          : r
+      ),
+    }));
+  } catch (error) {
+    console.error('Error aceptando petición:', error);
+    alert('No se pudo aceptar la petición');
+  }
+}
  function start(){ setState({...state, requests:state.requests.map(r=>r.id===mine.id?{...r,status:'in_progress'}:r)}); }
  async function updateLocation(){
    setGeoStatus('Pidiendo permiso de ubicación...');
