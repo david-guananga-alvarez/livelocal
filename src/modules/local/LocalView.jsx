@@ -14,7 +14,13 @@ import { useAuth } from '../auth/AuthProvider';
 
 export default function LocalView({ state, setState }){
  const { user } = useAuth();
- const local=state.locals.find(l=>l.id===state.activeLocalId) || state.locals[0];
+ const local = {
+  id: user?.id,
+  name: user?.user_metadata?.full_name || user?.email || 'Local',
+  zones: state.locals[0]?.zones ?? [],
+  rating: state.locals[0]?.rating ?? 5,
+  location: state.locals[0]?.location ?? null,
+};
  const [geoStatus, setGeoStatus] = useState('');
 
 useEffect(() => {
@@ -83,6 +89,7 @@ useEffect(() => {
  const incoming = enrichedRequests.filter(
   r =>
     r.status === 'pending' &&
+    r.clientId &&
     r.clientId !== user?.id &&
     (local.zones.includes(r.zoneId) || r.distanceKm <= 3)
 );
