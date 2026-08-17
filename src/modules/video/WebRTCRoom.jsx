@@ -141,6 +141,18 @@ export default function WebRTCRoom({ roomId, role }) {
 
       pcRef.current = pc;
 
+      pc.oniceconnectionstatechange = () => {
+  console.log('ICE state:', pc.iceConnectionState);
+};
+
+pc.onicegatheringstatechange = () => {
+  console.log('ICE gathering:', pc.iceGatheringState);
+};
+
+pc.onicecandidateerror = event => {
+  console.error('ICE candidate error:', event);
+};
+
       stream.getTracks().forEach(track => {
         pc.addTrack(track, stream);
       });
