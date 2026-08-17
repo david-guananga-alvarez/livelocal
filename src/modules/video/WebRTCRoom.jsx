@@ -3,11 +3,30 @@ import { Camera, Mic, PhoneOff } from 'lucide-react';
 import { supabase } from '../auth/supabaseClient';
 
 const iceServers = [
-  {
-    urls: 'stun:stun.l.google.com:19302',
-  },
-];
-
+      {
+        urls: "stun:stun.relay.metered.ca:80",
+      },
+      {
+        urls: "turn:standard.relay.metered.ca:80",
+        username: "59135b3209858ee9ff881003",
+        credential: "zoO5z6FSSNc+Dz/S",
+      },
+      {
+        urls: "turn:standard.relay.metered.ca:80?transport=tcp",
+        username: "59135b3209858ee9ff881003",
+        credential: "zoO5z6FSSNc+Dz/S",
+      },
+      {
+        urls: "turn:standard.relay.metered.ca:443",
+        username: "59135b3209858ee9ff881003",
+        credential: "zoO5z6FSSNc+Dz/S",
+      },
+      {
+        urls: "turns:standard.relay.metered.ca:443?transport=tcp",
+        username: "59135b3209858ee9ff881003",
+        credential: "zoO5z6FSSNc+Dz/S",
+      },
+  ];
 export default function WebRTCRoom({ roomId, role }) {
   const localVideo = useRef(null);
   const remoteVideo = useRef(null);
