@@ -107,30 +107,47 @@ export default function LocalView({ state, setState }) {
   // --------------------------------------------------
 
   useEffect(() => {
-    if (!supabase) return;
+  if (!supabase) return;
 
-    const channel = supabase
-      .channel('requests-realtime')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'requests',
-        },
-        payload => {
-          console.log(
-            'Cambio realtime en requests:',
-            payload
-          );
-        }
-      )
-      .subscribe();
+  const channel = supabase
+    .channel('requests-realtime')
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'requests',
+      },
+      payload => {
+        console.log(
+          'Cambio realtime en requests:',
+          payload
+        );
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
+        const row = payload.new;
+
+        if (!row?.id) return;
+
+        setState(prev => ({
+          ...prev,
+          requests: prev.requests.map(request =>
+            request.id === row.id
+              ? {
+                  ...request,
+                  status: row.status,
+                  localId: row.local_id,
+                }
+              : request
+          ),
+        }));
+      }
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}, []);
 
   // --------------------------------------------------
   // PETICIONES + DISTANCIA
