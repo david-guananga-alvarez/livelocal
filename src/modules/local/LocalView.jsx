@@ -1,5 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { UserCheck, Play, LocateFixed, Video } from 'lucide-react';
+import {
+  UserCheck,
+  Play,
+  LocateFixed,
+  Video,
+} from 'lucide-react';
 
 import { zones } from '../../data/seed';
 import { statusLabel } from '../matching/matching';
@@ -153,7 +158,7 @@ export default function LocalView({ state, setState }) {
     });
   }, [state.requests, local.location]);
 
-  // Peticiones pendientes creadas por OTROS usuarios
+  // Peticiones pendientes de OTROS usuarios
   const incoming = enrichedRequests.filter(
     request =>
       request.status === 'pending' &&
@@ -167,7 +172,7 @@ export default function LocalView({ state, setState }) {
       )
   );
 
-  // Petición que este Local ya ha aceptado
+  // Petición que este Local tiene asignada
   const mine = enrichedRequests.find(
     request =>
       request.localId === local.id &&
@@ -176,7 +181,7 @@ export default function LocalView({ state, setState }) {
   );
 
   // --------------------------------------------------
-  // ACEPTAR PETICIÓN
+  // ACEPTAR
   // pending -> matched
   // --------------------------------------------------
 
@@ -189,17 +194,16 @@ export default function LocalView({ state, setState }) {
 
       setState(prev => ({
         ...prev,
-        requests: prev.requests.map(
-          current =>
-            current.id === request.id
-              ? {
-                  ...current,
-                  status: 'matched',
-                  localId: local.id,
-                  acceptedAt:
-                    new Date().toLocaleString(),
-                }
-              : current
+        requests: prev.requests.map(current =>
+          current.id === request.id
+            ? {
+                ...current,
+                status: 'matched',
+                localId: local.id,
+                acceptedAt:
+                  new Date().toLocaleString(),
+              }
+            : current
         ),
       }));
     } catch (error) {
@@ -228,14 +232,13 @@ export default function LocalView({ state, setState }) {
 
       setState(prev => ({
         ...prev,
-        requests: prev.requests.map(
-          current =>
-            current.id === request.id
-              ? {
-                  ...current,
-                  status: 'on_the_way',
-                }
-              : current
+        requests: prev.requests.map(current =>
+          current.id === request.id
+            ? {
+                ...current,
+                status: 'on_the_way',
+              }
+            : current
         ),
       }));
     } catch (error) {
@@ -250,40 +253,85 @@ export default function LocalView({ state, setState }) {
     }
   }
 
-  async function markArrived(request) {
-  try {
-    await updateRequestStatus(
-      request.id,
-      'arrived'
-    );
+  // --------------------------------------------------
+  // MARCAR LLEGADA
+  // on_the_way -> arrived
+  // --------------------------------------------------
 
-    setState(prev => ({
-      ...prev,
-      requests: prev.requests.map(
-        current =>
+  async function markArrived(request) {
+    try {
+      await updateRequestStatus(
+        request.id,
+        'arrived'
+      );
+
+      setState(prev => ({
+        ...prev,
+        requests: prev.requests.map(current =>
           current.id === request.id
             ? {
                 ...current,
                 status: 'arrived',
               }
             : current
-      ),
-    }));
-  } catch (error) {
-    console.error(
-      'Error marcando llegada:',
-      error
+        ),
+      }));
+    } catch (error) {
+      console.error(
+        'Error marcando llegada:',
+        error
+      );
+
+      alert(
+        'No se pudo marcar la llegada'
+      );
+    }
+  }
+
+  // --------------------------------------------------
+  // CANCELAR SERVICIO
+  // matched / on_the_way -> cancelled
+  // --------------------------------------------------
+
+  async function cancelService(request) {
+    const confirmed = window.confirm(
+      '¿Quieres cancelar este servicio?'
     );
 
-    alert(
-      'No se pudo marcar la llegada'
-    );
+    if (!confirmed) return;
+
+    try {
+      await updateRequestStatus(
+        request.id,
+        'cancelled'
+      );
+
+      setState(prev => ({
+        ...prev,
+        requests: prev.requests.map(current =>
+          current.id === request.id
+            ? {
+                ...current,
+                status: 'cancelled',
+              }
+            : current
+        ),
+      }));
+    } catch (error) {
+      console.error(
+        'Error cancelando servicio:',
+        error
+      );
+
+      alert(
+        'No se pudo cancelar el servicio'
+      );
+    }
   }
-}
+
   // --------------------------------------------------
   // INICIAR SESIÓN
-  // Temporalmente on_the_way -> in_progress
-  // Más adelante introduciremos "arrived"
+  // arrived -> in_progress
   // --------------------------------------------------
 
   async function startSession(request) {
@@ -295,14 +343,13 @@ export default function LocalView({ state, setState }) {
 
       setState(prev => ({
         ...prev,
-        requests: prev.requests.map(
-          current =>
-            current.id === request.id
-              ? {
-                  ...current,
-                  status: 'in_progress',
-                }
-              : current
+        requests: prev.requests.map(current =>
+          current.id === request.id
+            ? {
+                ...current,
+                status: 'in_progress',
+              }
+            : current
         ),
       }));
     } catch (error) {
@@ -393,43 +440,55 @@ export default function LocalView({ state, setState }) {
           )}
 
           {mine.status === 'on_the_way' && (
-  <div className="stack">
-    <p className="statusLine">
-      Te estás desplazando hacia
-      el punto solicitado.
-    </p>
+            <div className="stack">
+              <p className="statusLine">
+                Te estás desplazando hacia
+                el punto solicitado.
+              </p>
 
-    <button
-      onClick={() =>
-        markArrived(mine)
-      }
-    >
-      <LocateFixed size={16} />
-      He llegado
-    </button>
-  </div>
-)}
+              <button
+                onClick={() =>
+                  markArrived(mine)
+                }
+              >
+                <LocateFixed size={16} />
+                He llegado
+              </button>
+            </div>
+          )}
 
-{mine.status === 'arrived' && (
-  <div className="stack">
-    <p className="statusLine">
-      Has llegado al punto solicitado.
-    </p>
+          {mine.status === 'arrived' && (
+            <div className="stack">
+              <p className="statusLine">
+                Has llegado al punto solicitado.
+              </p>
 
-    <button
-      onClick={() =>
-        startSession(mine)
-      }
-    >
-      <Video size={16} />
-      Entrar en sesión
-    </button>
-  </div>
-)}
+              <button
+                onClick={() =>
+                  startSession(mine)
+                }
+              >
+                <Video size={16} />
+                Entrar en sesión
+              </button>
+            </div>
+          )}
+
+          {['matched', 'on_the_way'].includes(
+            mine.status
+          ) && (
+            <button
+              className="danger"
+              onClick={() =>
+                cancelService(mine)
+              }
+            >
+              Cancelar servicio
+            </button>
+          )}
         </section>
 
-        {mine.status ===
-          'in_progress' && (
+        {mine.status === 'in_progress' && (
           <SessionWorkspace
             request={mine}
             state={state}
@@ -477,13 +536,9 @@ export default function LocalView({ state, setState }) {
           {local.location && (
             <small>
               Lat{' '}
-              {local.location.lat.toFixed(
-                4
-              )}
+              {local.location.lat.toFixed(4)}
               , Lng{' '}
-              {local.location.lng.toFixed(
-                4
-              )}
+              {local.location.lng.toFixed(4)}
             </small>
           )}
         </div>
@@ -532,9 +587,7 @@ export default function LocalView({ state, setState }) {
                   accept(request)
                 }
               >
-                <UserCheck
-                  size={16}
-                />
+                <UserCheck size={16} />
                 Aceptar
               </button>
             </div>

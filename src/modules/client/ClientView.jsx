@@ -1,11 +1,29 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Search, Video, CheckCircle, MapPin } from 'lucide-react';
+import {
+  Search,
+  CheckCircle,
+  MapPin,
+} from 'lucide-react';
+
 import { zones, prices } from '../../data/seed';
-import { getMatchingLocals, statusLabel } from '../matching/matching';
-import { formatDistance } from '../location/location';
+
+import {
+  getMatchingLocals,
+  statusLabel,
+} from '../matching/matching';
+
+import {
+  formatDistance,
+} from '../location/location';
+
 import ZoneMap from '../../components/ZoneMap';
 import SessionWorkspace from '../session/SessionWorkspace';
-import { createRequest } from '../requests/requestsService';
+
+import {
+  createRequest,
+  updateRequestStatus,
+} from '../requests/requestsService';
+
 import { useAuth } from '../auth/AuthProvider';
 import { supabase } from '../auth/supabaseClient';
 
@@ -17,212 +35,396 @@ export default function ClientView({ state, setState }) {
   const [notes, setNotes] = useState(
     'Enséñame la zona en directo y responde dudas.'
   );
+
+  // --------------------------------------------------
+  // REALTIME DE LAS PETICIONES DEL CLIENTE
+  // --------------------------------------------------
+
   useEffect(() => {
-  if (!supabase || !user?.id) return;
+    if (!supabase || !user?.id) return;
 
-  const channel = supabase
-    .channel(`client-requests-${user.id}`)
-    .on(
-      'postgres_changes',
-      {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'requests',
-      },
-      payload => {
-        const row = payload.new;
+    const channel = supabase
+      .channel(`client-requests-${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'requests',
+        },
+        payload => {
+          const row = payload.new;
 
-        // Solo reaccionamos a peticiones de este cliente
-        if (row.client_id !== user.id) return;
+          // Solo cambios de este cliente
+          if (row.client_id !== user.id) {
+            return;
+          }
 
-        console.log(
-          'Cambio de estado recibido por Cliente:',
-          row
-        );
+          console.log(
+            'Cambio de estado recibido por Cliente:',
+            row
+          );
 
-        setState(prev => ({
-          ...prev,
-          requests: prev.requests.map(request =>
-            request.id === row.id
-              ? {
-                  ...request,
-                  status: row.status,
-                  localId: row.local_id,
-                }
-              : request
-          ),
-        }));
-      }
-    )
-    .subscribe();
+          setState(prev => ({
+            ...prev,
+            requests: prev.requests.map(request =>
+              request.id === row.id
+                ? {
+                    ...request,
+                    status: row.status,
+                    localId: row.local_id,
+                  }
+                : request
+            ),
+          }));
+        }
+      )
+      .subscribe();
 
-  return () => {
-    supabase.removeChannel(channel);
-  };
-}, [user?.id]);
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id]);
+
+  // --------------------------------------------------
+  // PETICIONES ACTIVAS DEL USUARIO
+  // --------------------------------------------------
 
   const activeRequests = state.requests
     .filter(
-      r =>
-        r.clientId === user?.id &&
-        r.status !== 'completed' &&
-        r.status !== 'cancelled'
+      request =>
+        request.clientId === user?.id &&
+        request.status !== 'completed' &&
+        request.status !== 'cancelled'
     )
     .reverse();
 
-  const selectedZone = zones.find(z => z.id === zone);
+  const selectedZone = zones.find(
+    z => z.id === zone
+  );
 
   const matches = useMemo(
-    () => getMatchingLocals(state.locals, zone, zones),
+    () =>
+      getMatchingLocals(
+        state.locals,
+        zone,
+        zones
+      ),
     [state.locals, zone]
   );
+
+  // --------------------------------------------------
+  // CREAR PETICIÓN
+  // --------------------------------------------------
 
   async function requestNow() {
     const best = matches[0];
 
-    const req = {
+    const request = {
       id: crypto.randomUUID(),
       clientId: user.id,
+
       zoneId: zone,
       zoneName: selectedZone.name,
       zoneCenter: selectedZone.center,
+
       duration,
       price: prices[duration],
       notes,
+
       status: 'pending',
-      createdAt: new Date().toLocaleString(),
+
+      createdAt:
+        new Date().toLocaleString(),
+
       localId: null,
-      candidateLocalIds: matches.map(m => m.id),
-      bestEta: best?.etaMinutes ?? selectedZone.eta,
-      bestDistanceKm: best?.distanceKm ?? null,
+
+      candidateLocalIds:
+        matches.map(local => local.id),
+
+      bestEta:
+        best?.etaMinutes ??
+        selectedZone.eta,
+
+      bestDistanceKm:
+        best?.distanceKm ?? null,
     };
 
     try {
-      await createRequest(req);
+      await createRequest(request);
 
       setState(prev => ({
         ...prev,
-        requests: [...prev.requests, req],
+        requests: [
+          ...prev.requests,
+          request,
+        ],
       }));
     } catch (error) {
-      console.error('Error creando petición en Supabase:', error);
-      alert('No se pudo crear la petición');
+      console.error(
+        'Error creando petición en Supabase:',
+        error
+      );
+
+      alert(
+        'No se pudo crear la petición'
+      );
     }
   }
 
-  function startSession(requestId) {
-    setState(prev => ({
-      ...prev,
-      requests: prev.requests.map(r =>
-        r.id === requestId
-          ? { ...r, status: 'in_progress' }
-          : r
-      ),
-    }));
+  // --------------------------------------------------
+  // CANCELAR
+  // pending / matched / on_the_way -> cancelled
+  // --------------------------------------------------
+
+  async function cancelRequest(request) {
+    const confirmed = window.confirm(
+      '¿Quieres cancelar esta solicitud?'
+    );
+
+    if (!confirmed) return;
+
+    try {
+      await updateRequestStatus(
+        request.id,
+        'cancelled'
+      );
+
+      setState(prev => ({
+        ...prev,
+        requests: prev.requests.map(current =>
+          current.id === request.id
+            ? {
+                ...current,
+                status: 'cancelled',
+              }
+            : current
+        ),
+      }));
+    } catch (error) {
+      console.error(
+        'Error cancelando solicitud:',
+        error
+      );
+
+      alert(
+        'No se pudo cancelar la solicitud'
+      );
+    }
   }
 
-  function complete(requestId) {
-    setState(prev => ({
-      ...prev,
-      requests: prev.requests.map(r =>
-        r.id === requestId
-          ? { ...r, status: 'completed' }
-          : r
-      ),
-    }));
+  // --------------------------------------------------
+  // FINALIZAR SESIÓN
+  // in_progress -> completed
+  // --------------------------------------------------
+
+  async function complete(request) {
+    try {
+      await updateRequestStatus(
+        request.id,
+        'completed'
+      );
+
+      setState(prev => ({
+        ...prev,
+        requests: prev.requests.map(current =>
+          current.id === request.id
+            ? {
+                ...current,
+                status: 'completed',
+              }
+            : current
+        ),
+      }));
+    } catch (error) {
+      console.error(
+        'Error finalizando servicio:',
+        error
+      );
+
+      alert(
+        'No se pudo finalizar el servicio'
+      );
+    }
   }
+
+  // --------------------------------------------------
+  // UI
+  // --------------------------------------------------
 
   return (
     <div className="stack">
       <section className="hero">
-        <p className="eyebrow">LiveLocal Barcelona</p>
+        <p className="eyebrow">
+          LiveLocal Barcelona
+        </p>
 
         <h1>
-          Pide ojos humanos en una zona, como pedir un Uber.
+          Pide ojos humanos en una zona,
+          como pedir un Uber.
         </h1>
 
         <p>
-          Ahora el matching usa zonas + distancia aproximada de los locales disponibles.
+          Ahora el matching usa zonas +
+          distancia aproximada de los
+          locales disponibles.
         </p>
       </section>
 
+      {/* PETICIONES ACTIVAS */}
+
       {activeRequests.length > 0 && (
         <section className="card">
-          <h2>Mis peticiones activas</h2>
+          <h2>
+            Mis peticiones activas
+          </h2>
 
           <div className="stack">
             {activeRequests.map(request => {
-              const local = state.locals.find(
-                l => l.id === request.localId
-              );
+              const local =
+                state.locals.find(
+                  item =>
+                    item.id ===
+                    request.localId
+                );
 
               return (
-                <div className="requestCard" key={request.id}>
+                <div
+                  className="requestCard"
+                  key={request.id}
+                >
                   <div>
-                    <b>{request.zoneName}</b>
+                    <b>
+                      {request.zoneName}
+                    </b>
 
                     <p>
-                      {request.duration} min · {request.price} €
+                      {request.duration} min ·{' '}
+                      {request.price} €
                     </p>
 
                     <small>
-                      {statusLabel(request.status)}
+                      {statusLabel(
+                        request.status
+                      )}
                     </small>
                   </div>
 
-                  {request.status === 'pending' && (
+                  {/* PENDING */}
+
+                  {request.status ===
+                    'pending' && (
                     <div className="searching">
-                      <span></span>
+                      <span />
                       Buscando local cercano...
                     </div>
                   )}
 
-                  {request.status === 'matched' && (
+                  {/* MATCHED */}
+
+                  {request.status ===
+                    'matched' && (
                     <div className="matched">
-                      <CheckCircle size={18} />
+                      <CheckCircle
+                        size={18}
+                      />
 
-                      <span>
-                        Local encontrado:{' '}
-                        <b>{local?.name ?? 'Local'}</b>
-                      </span>
+                      <div>
+                        <b>
+                          Local encontrado
+                        </b>
 
-                      <button
-                        onClick={() => startSession(request.id)}
-                      >
-                        <Video size={16} />
-                        Iniciar sesión
-                      </button>
+                        <p>
+                          {local?.name ??
+                            'Un Local ha aceptado tu solicitud.'}
+                        </p>
+
+                        <small>
+                          Esperando a que
+                          inicie el
+                          desplazamiento.
+                        </small>
+                      </div>
                     </div>
                   )}
 
-                  {request.status === 'on_the_way' && (
-  <div className="matched">
-    <CheckCircle size={18} />
+                  {/* ON THE WAY */}
 
-    <div>
-      <b>Tu Local está de camino</b>
-      <p>
-        Se está desplazando hacia el punto solicitado.
-      </p>
-    </div>
-  </div>
-)}
+                  {request.status ===
+                    'on_the_way' && (
+                    <div className="matched">
+                      <CheckCircle
+                        size={18}
+                      />
 
-{request.status === 'arrived' && (
-  <div className="matched">
-    <CheckCircle size={18} />
+                      <div>
+                        <b>
+                          Tu Local está de
+                          camino
+                        </b>
 
-    <div>
-      <b>Tu Local ha llegado</b>
+                        <p>
+                          Se está desplazando
+                          hacia el punto
+                          solicitado.
+                        </p>
+                      </div>
+                    </div>
+                  )}
 
-      <p>
-        Ya está en el punto solicitado.
-      </p>
-    </div>
-  </div>
-)}
+                  {/* ARRIVED */}
 
-                  {request.status === 'in_progress' && (
+                  {request.status ===
+                    'arrived' && (
+                    <div className="matched">
+                      <CheckCircle
+                        size={18}
+                      />
+
+                      <div>
+                        <b>
+                          Tu Local ha llegado
+                        </b>
+
+                        <p>
+                          Ya está en el punto
+                          solicitado.
+                        </p>
+
+                        <small>
+                          El Local puede
+                          iniciar ahora la
+                          sesión.
+                        </small>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* CANCELACIÓN */}
+
+                  {[
+                    'pending',
+                    'matched',
+                    'on_the_way',
+                  ].includes(
+                    request.status
+                  ) && (
+                    <button
+                      className="danger"
+                      onClick={() =>
+                        cancelRequest(
+                          request
+                        )
+                      }
+                    >
+                      Cancelar solicitud
+                    </button>
+                  )}
+
+                  {/* SESIÓN */}
+
+                  {request.status ===
+                    'in_progress' && (
                     <>
                       <SessionWorkspace
                         request={request}
@@ -233,7 +435,9 @@ export default function ClientView({ state, setState }) {
 
                       <button
                         className="success"
-                        onClick={() => complete(request.id)}
+                        onClick={() =>
+                          complete(request)
+                        }
                       >
                         Finalizar servicio
                       </button>
@@ -246,8 +450,12 @@ export default function ClientView({ state, setState }) {
         </section>
       )}
 
+      {/* NUEVA PETICIÓN */}
+
       <section className="card">
-        <h2>¿Dónde necesitas un local?</h2>
+        <h2>
+          ¿Dónde necesitas un local?
+        </h2>
 
         <ZoneMap
           zones={zones}
@@ -259,17 +467,26 @@ export default function ClientView({ state, setState }) {
           <MapPin size={18} />
 
           <div>
-            <b>{selectedZone.name}</b>
+            <b>
+              {selectedZone.name}
+            </b>
 
             <span>
-              {matches.length} locales compatibles · ETA{' '}
-              {matches[0]?.etaMinutes ?? selectedZone.eta} min
+              {matches.length} locales
+              compatibles · ETA{' '}
+              {matches[0]?.etaMinutes ??
+                selectedZone.eta}{' '}
+              min
             </span>
 
             {matches[0] && (
               <small>
-                Más cercano: {matches[0].name},{' '}
-                {formatDistance(matches[0].distanceKm)}
+                Más cercano:{' '}
+                {matches[0].name},{' '}
+                {formatDistance(
+                  matches[0]
+                    .distanceKm
+                )}
               </small>
             )}
           </div>
@@ -281,7 +498,11 @@ export default function ClientView({ state, setState }) {
 
             <select
               value={duration}
-              onChange={e => setDuration(+e.target.value)}
+              onChange={event =>
+                setDuration(
+                  +event.target.value
+                )
+              }
             >
               <option value="15">
                 15 min · 15 €
@@ -302,7 +523,11 @@ export default function ClientView({ state, setState }) {
 
             <textarea
               value={notes}
-              onChange={e => setNotes(e.target.value)}
+              onChange={event =>
+                setNotes(
+                  event.target.value
+                )
+              }
             />
           </label>
         </div>
