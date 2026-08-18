@@ -208,6 +208,20 @@ export default function ClientView({ state, setState }) {
   </div>
 )}
 
+{request.status === 'arrived' && (
+  <div className="matched">
+    <CheckCircle size={18} />
+
+    <div>
+      <b>Tu Local ha llegado</b>
+
+      <p>
+        Ya está en el punto solicitado.
+      </p>
+    </div>
+  </div>
+)}
+
                   {request.status === 'in_progress' && (
                     <>
                       <SessionWorkspace

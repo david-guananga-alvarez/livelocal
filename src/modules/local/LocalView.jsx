@@ -250,6 +250,36 @@ export default function LocalView({ state, setState }) {
     }
   }
 
+  async function markArrived(request) {
+  try {
+    await updateRequestStatus(
+      request.id,
+      'arrived'
+    );
+
+    setState(prev => ({
+      ...prev,
+      requests: prev.requests.map(
+        current =>
+          current.id === request.id
+            ? {
+                ...current,
+                status: 'arrived',
+              }
+            : current
+      ),
+    }));
+  } catch (error) {
+    console.error(
+      'Error marcando llegada:',
+      error
+    );
+
+    alert(
+      'No se pudo marcar la llegada'
+    );
+  }
+}
   // --------------------------------------------------
   // INICIAR SESIÓN
   // Temporalmente on_the_way -> in_progress
@@ -362,24 +392,40 @@ export default function LocalView({ state, setState }) {
             </button>
           )}
 
-          {mine.status ===
-            'on_the_way' && (
-            <div className="stack">
-              <p className="statusLine">
-                Te estás desplazando hacia
-                el punto solicitado.
-              </p>
+          {mine.status === 'on_the_way' && (
+  <div className="stack">
+    <p className="statusLine">
+      Te estás desplazando hacia
+      el punto solicitado.
+    </p>
 
-              <button
-                onClick={() =>
-                  startSession(mine)
-                }
-              >
-                <Video size={16} />
-                Entrar en sesión
-              </button>
-            </div>
-          )}
+    <button
+      onClick={() =>
+        markArrived(mine)
+      }
+    >
+      <LocateFixed size={16} />
+      He llegado
+    </button>
+  </div>
+)}
+
+{mine.status === 'arrived' && (
+  <div className="stack">
+    <p className="statusLine">
+      Has llegado al punto solicitado.
+    </p>
+
+    <button
+      onClick={() =>
+        startSession(mine)
+      }
+    >
+      <Video size={16} />
+      Entrar en sesión
+    </button>
+  </div>
+)}
         </section>
 
         {mine.status ===
