@@ -119,28 +119,76 @@ export default function LocalView({ state, setState }) {
         table: 'requests',
       },
       payload => {
-        console.log(
-          'Cambio realtime en requests:',
-          payload
-        );
+  console.log(
+    'Cambio realtime en requests:',
+    payload
+  );
 
-        const row = payload.new;
+  const row = payload.new;
 
-        if (!row?.id) return;
+  if (!row?.id) return;
 
-        setState(prev => ({
-          ...prev,
-          requests: prev.requests.map(request =>
-            request.id === row.id
-              ? {
-                  ...request,
-                  status: row.status,
-                  localId: row.local_id,
-                }
-              : request
-          ),
-        }));
-      }
+  const zoneData = zones.find(
+    z => z.id === row.zone
+  );
+
+  const mappedRequest = {
+    id: row.id,
+    clientId: row.client_id,
+    localId: row.local_id,
+
+    zoneId: row.zone,
+    zoneName:
+      zoneData?.name ?? row.zone,
+    zoneCenter:
+      zoneData?.center ?? null,
+
+    duration: row.duration_minutes,
+
+    price:
+      row.duration_minutes === 15
+        ? 15
+        : row.duration_minutes === 30
+        ? 25
+        : 35,
+
+    notes: row.description,
+    status: row.status,
+    createdAt: row.created_at,
+
+    candidateLocalIds: [],
+    bestEta: zoneData?.eta ?? null,
+    bestDistanceKm: null,
+  };
+
+  setState(prev => {
+    const exists = prev.requests.some(
+      request => request.id === row.id
+    );
+
+    if (exists) {
+      return {
+        ...prev,
+        requests: prev.requests.map(request =>
+          request.id === row.id
+            ? {
+                ...request,
+                ...mappedRequest,
+              }
+            : request
+        ),
+      };
+    }
+
+    return {
+      ...prev,
+      requests: [
+        ...prev.requests,
+        mappedRequest,
+      ],
+    };
+  });
+}
     )
     .subscribe();
 
