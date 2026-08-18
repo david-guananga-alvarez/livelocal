@@ -27,6 +27,12 @@ import {
 import { supabase } from '../auth/supabaseClient';
 import { useAuth } from '../auth/AuthProvider';
 
+import {
+  goOnline,
+  goOffline,
+  getLocalStatus,
+} from './localService';
+
 export default function LocalView({ state, setState }) {
   const { user } = useAuth();
 
@@ -42,6 +48,75 @@ export default function LocalView({ state, setState }) {
   };
 
   const [geoStatus, setGeoStatus] = useState('');
+  const [isOnline, setIsOnline] = useState(false);
+  const [onlineLoading, setOnlineLoading] = useState(true);
+
+  // --------------------------------------------------
+  // CARGAR ESTADO ONLINE/OFFLINE
+  // --------------------------------------------------
+
+  useEffect(() => {
+    async function loadLocalStatus() {
+      if (!user?.id) {
+        setOnlineLoading(false);
+        return;
+      }
+
+      try {
+        const data = await getLocalStatus(user.id);
+
+        setIsOnline(
+          Boolean(data?.is_online)
+        );
+
+        if (
+          data?.latitude != null &&
+          data?.longitude != null
+        ) {
+          const location = {
+            lat: data.latitude,
+            lng: data.longitude,
+            accuracy:
+              data.accuracy ?? null,
+          };
+
+          setState(prev => ({
+            ...prev,
+            locals: prev.locals.map(
+              (storedLocal, index) =>
+                index === 0
+                  ? {
+                      ...storedLocal,
+                      location,
+                    }
+                  : storedLocal
+            ),
+          }));
+
+          setGeoStatus(
+            data.is_online
+              ? `Ubicación activa${
+                  data.accuracy != null
+                    ? ` · precisión ${Math.round(
+                        data.accuracy
+                      )} m`
+                    : ''
+                }`
+              : ''
+          );
+        }
+      } catch (error) {
+        console.error(
+          'Error cargando estado del Local:',
+          error
+        );
+      } finally {
+        setOnlineLoading(false);
+      }
+    }
+
+    loadLocalStatus();
+  }, [user?.id]);
 
   // --------------------------------------------------
   // CARGAR PETICIONES DESDE SUPABASE
@@ -50,46 +125,63 @@ export default function LocalView({ state, setState }) {
   useEffect(() => {
     async function loadRequests() {
       try {
-        const rows = await getRequests();
+        const rows =
+          await getRequests();
 
-        const mappedRequests = rows.map(row => {
-          const zoneData = zones.find(
-            z => z.id === row.zone
-          );
+        const mappedRequests =
+          rows.map(row => {
+            const zoneData =
+              zones.find(
+                z =>
+                  z.id ===
+                  row.zone
+              );
 
-          return {
-            id: row.id,
-            clientId: row.client_id,
-            localId: row.local_id,
+            return {
+              id: row.id,
+              clientId:
+                row.client_id,
+              localId:
+                row.local_id,
 
-            zoneId: row.zone,
-            zoneName:
-              zoneData?.name ?? row.zone,
-            zoneCenter:
-              zoneData?.center ?? null,
+              zoneId: row.zone,
+              zoneName:
+                zoneData?.name ??
+                row.zone,
+              zoneCenter:
+                zoneData?.center ??
+                null,
 
-            duration: row.duration_minutes,
+              duration:
+                row.duration_minutes,
 
-            price:
-              row.duration_minutes === 15
-                ? 15
-                : row.duration_minutes === 30
-                ? 25
-                : 35,
+              price:
+                row.duration_minutes ===
+                15
+                  ? 15
+                  : row.duration_minutes ===
+                    30
+                  ? 25
+                  : 35,
 
-            notes: row.description,
-            status: row.status,
-            createdAt: row.created_at,
+              notes:
+                row.description,
+              status: row.status,
+              createdAt:
+                row.created_at,
 
-            candidateLocalIds: [],
-            bestEta: zoneData?.eta ?? null,
-            bestDistanceKm: null,
-          };
-        });
+              candidateLocalIds: [],
+              bestEta:
+                zoneData?.eta ??
+                null,
+              bestDistanceKm: null,
+            };
+          });
 
         setState(prev => ({
           ...prev,
-          requests: mappedRequests,
+          requests:
+            mappedRequests,
         }));
       } catch (error) {
         console.error(
@@ -107,143 +199,270 @@ export default function LocalView({ state, setState }) {
   // --------------------------------------------------
 
   useEffect(() => {
-  if (!supabase) return;
+    if (!supabase) return;
 
-  const channel = supabase
-    .channel('requests-realtime')
-    .on(
-      'postgres_changes',
-      {
-        event: '*',
-        schema: 'public',
-        table: 'requests',
-      },
-      payload => {
-  console.log(
-    'Cambio realtime en requests:',
-    payload
-  );
+    const channel =
+      supabase
+        .channel(
+          'requests-realtime'
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'requests',
+          },
+          payload => {
+            console.log(
+              'Cambio realtime en requests:',
+              payload
+            );
 
-  const row = payload.new;
+            const row =
+              payload.new;
 
-  if (!row?.id) return;
+            if (!row?.id) return;
 
-  const zoneData = zones.find(
-    z => z.id === row.zone
-  );
+            const zoneData =
+              zones.find(
+                z =>
+                  z.id ===
+                  row.zone
+              );
 
-  const mappedRequest = {
-    id: row.id,
-    clientId: row.client_id,
-    localId: row.local_id,
+            const mappedRequest = {
+              id: row.id,
+              clientId:
+                row.client_id,
+              localId:
+                row.local_id,
 
-    zoneId: row.zone,
-    zoneName:
-      zoneData?.name ?? row.zone,
-    zoneCenter:
-      zoneData?.center ?? null,
+              zoneId: row.zone,
+              zoneName:
+                zoneData?.name ??
+                row.zone,
+              zoneCenter:
+                zoneData?.center ??
+                null,
 
-    duration: row.duration_minutes,
+              duration:
+                row.duration_minutes,
 
-    price:
-      row.duration_minutes === 15
-        ? 15
-        : row.duration_minutes === 30
-        ? 25
-        : 35,
+              price:
+                row.duration_minutes ===
+                15
+                  ? 15
+                  : row.duration_minutes ===
+                    30
+                  ? 25
+                  : 35,
 
-    notes: row.description,
-    status: row.status,
-    createdAt: row.created_at,
+              notes:
+                row.description,
+              status: row.status,
+              createdAt:
+                row.created_at,
 
-    candidateLocalIds: [],
-    bestEta: zoneData?.eta ?? null,
-    bestDistanceKm: null,
-  };
+              candidateLocalIds: [],
+              bestEta:
+                zoneData?.eta ??
+                null,
+              bestDistanceKm: null,
+            };
 
-  setState(prev => {
-    const exists = prev.requests.some(
-      request => request.id === row.id
-    );
+            setState(prev => {
+              const exists =
+                prev.requests.some(
+                  request =>
+                    request.id ===
+                    row.id
+                );
 
-    if (exists) {
-      return {
-        ...prev,
-        requests: prev.requests.map(request =>
-          request.id === row.id
-            ? {
-                ...request,
-                ...mappedRequest,
+              if (exists) {
+                return {
+                  ...prev,
+                  requests:
+                    prev.requests.map(
+                      request =>
+                        request.id ===
+                        row.id
+                          ? {
+                              ...request,
+                              ...mappedRequest,
+                            }
+                          : request
+                    ),
+                };
               }
-            : request
-        ),
-      };
-    }
 
-    return {
-      ...prev,
-      requests: [
-        ...prev.requests,
-        mappedRequest,
-      ],
+              return {
+                ...prev,
+                requests: [
+                  ...prev.requests,
+                  mappedRequest,
+                ],
+              };
+            });
+          }
+        )
+        .subscribe();
+
+    return () => {
+      supabase.removeChannel(
+        channel
+      );
     };
-  });
-}
-    )
-    .subscribe();
-
-  return () => {
-    supabase.removeChannel(channel);
-  };
-}, []);
+  }, []);
 
   // --------------------------------------------------
   // PETICIONES + DISTANCIA
   // --------------------------------------------------
 
-  const enrichedRequests = useMemo(() => {
-    return state.requests.map(request => {
-      const zoneCenter =
-        request.zoneCenter ||
-        zones.find(
-          z => z.id === request.zoneId
-        )?.center;
+  const enrichedRequests =
+    useMemo(() => {
+      return state.requests.map(
+        request => {
+          const zoneCenter =
+            request.zoneCenter ||
+            zones.find(
+              z =>
+                z.id ===
+                request.zoneId
+            )?.center;
 
-      const km = distanceKm(
-        local.location,
-        zoneCenter
+          const km =
+            distanceKm(
+              local.location,
+              zoneCenter
+            );
+
+          return {
+            ...request,
+            distanceKm: km,
+            etaMinutes:
+              estimateEtaMinutes(
+                km
+              ),
+          };
+        }
+      );
+    }, [
+      state.requests,
+      local.location,
+    ]);
+
+  // Solo pendientes, de otros usuarios,
+  // y solo si el Local está ONLINE
+  const incoming =
+    enrichedRequests.filter(
+      request =>
+        isOnline &&
+        request.status ===
+          'pending' &&
+        request.clientId &&
+        request.clientId !==
+          user?.id &&
+        (
+          local.zones.includes(
+            request.zoneId
+          ) ||
+          request.distanceKm <=
+            3
+        )
+    );
+
+  // Servicio ya aceptado por este Local
+  const mine =
+    enrichedRequests.find(
+      request =>
+        request.localId ===
+          local.id &&
+        request.status !==
+          'completed' &&
+        request.status !==
+          'cancelled'
+    );
+
+  // --------------------------------------------------
+  // ONLINE
+  // --------------------------------------------------
+
+  async function handleGoOnline() {
+    if (!user?.id) return;
+
+    try {
+      setOnlineLoading(true);
+
+      const location =
+        await getBrowserLocation();
+
+      await goOnline(
+        user.id,
+        location
       );
 
-      return {
-        ...request,
-        distanceKm: km,
-        etaMinutes:
-          estimateEtaMinutes(km),
-      };
-    });
-  }, [state.requests, local.location]);
+      setState(prev => ({
+        ...prev,
+        locals: prev.locals.map(
+          (storedLocal, index) =>
+            index === 0
+              ? {
+                  ...storedLocal,
+                  location,
+                }
+              : storedLocal
+        ),
+      }));
 
-  // Peticiones pendientes de OTROS usuarios
-  const incoming = enrichedRequests.filter(
-    request =>
-      request.status === 'pending' &&
-      request.clientId &&
-      request.clientId !== user?.id &&
-      (
-        local.zones.includes(
-          request.zoneId
-        ) ||
-        request.distanceKm <= 3
-      )
-  );
+      setGeoStatus(
+        `Ubicación activa · precisión ${Math.round(
+          location.accuracy
+        )} m`
+      );
 
-  // Petición que este Local tiene asignada
-  const mine = enrichedRequests.find(
-    request =>
-      request.localId === local.id &&
-      request.status !== 'completed' &&
-      request.status !== 'cancelled'
-  );
+      setIsOnline(true);
+    } catch (error) {
+      console.error(
+        'Error poniendo Local online:',
+        error
+      );
+
+      alert(
+        'No se pudo activar el modo Local'
+      );
+    } finally {
+      setOnlineLoading(false);
+    }
+  }
+
+  // --------------------------------------------------
+  // OFFLINE
+  // --------------------------------------------------
+
+  async function handleGoOffline() {
+    if (!user?.id) return;
+
+    try {
+      setOnlineLoading(true);
+
+      await goOffline(user.id);
+
+      setIsOnline(false);
+      setGeoStatus('');
+    } catch (error) {
+      console.error(
+        'Error poniendo Local offline:',
+        error
+      );
+
+      alert(
+        'No se pudo desconectar el Local'
+      );
+    } finally {
+      setOnlineLoading(false);
+    }
+  }
 
   // --------------------------------------------------
   // ACEPTAR
@@ -259,17 +478,22 @@ export default function LocalView({ state, setState }) {
 
       setState(prev => ({
         ...prev,
-        requests: prev.requests.map(current =>
-          current.id === request.id
-            ? {
-                ...current,
-                status: 'matched',
-                localId: local.id,
-                acceptedAt:
-                  new Date().toLocaleString(),
-              }
-            : current
-        ),
+        requests:
+          prev.requests.map(
+            current =>
+              current.id ===
+              request.id
+                ? {
+                    ...current,
+                    status:
+                      'matched',
+                    localId:
+                      local.id,
+                    acceptedAt:
+                      new Date().toLocaleString(),
+                  }
+                : current
+          ),
       }));
     } catch (error) {
       console.error(
@@ -284,11 +508,12 @@ export default function LocalView({ state, setState }) {
   }
 
   // --------------------------------------------------
-  // INICIAR DESPLAZAMIENTO
   // matched -> on_the_way
   // --------------------------------------------------
 
-  async function startRoute(request) {
+  async function startRoute(
+    request
+  ) {
     try {
       await updateRequestStatus(
         request.id,
@@ -297,14 +522,18 @@ export default function LocalView({ state, setState }) {
 
       setState(prev => ({
         ...prev,
-        requests: prev.requests.map(current =>
-          current.id === request.id
-            ? {
-                ...current,
-                status: 'on_the_way',
-              }
-            : current
-        ),
+        requests:
+          prev.requests.map(
+            current =>
+              current.id ===
+              request.id
+                ? {
+                    ...current,
+                    status:
+                      'on_the_way',
+                  }
+                : current
+          ),
       }));
     } catch (error) {
       console.error(
@@ -319,11 +548,12 @@ export default function LocalView({ state, setState }) {
   }
 
   // --------------------------------------------------
-  // MARCAR LLEGADA
   // on_the_way -> arrived
   // --------------------------------------------------
 
-  async function markArrived(request) {
+  async function markArrived(
+    request
+  ) {
     try {
       await updateRequestStatus(
         request.id,
@@ -332,14 +562,18 @@ export default function LocalView({ state, setState }) {
 
       setState(prev => ({
         ...prev,
-        requests: prev.requests.map(current =>
-          current.id === request.id
-            ? {
-                ...current,
-                status: 'arrived',
-              }
-            : current
-        ),
+        requests:
+          prev.requests.map(
+            current =>
+              current.id ===
+              request.id
+                ? {
+                    ...current,
+                    status:
+                      'arrived',
+                  }
+                : current
+          ),
       }));
     } catch (error) {
       console.error(
@@ -354,14 +588,16 @@ export default function LocalView({ state, setState }) {
   }
 
   // --------------------------------------------------
-  // CANCELAR SERVICIO
-  // matched / on_the_way -> cancelled
+  // CANCELAR
   // --------------------------------------------------
 
-  async function cancelService(request) {
-    const confirmed = window.confirm(
-      '¿Quieres cancelar este servicio?'
-    );
+  async function cancelService(
+    request
+  ) {
+    const confirmed =
+      window.confirm(
+        '¿Quieres cancelar este servicio?'
+      );
 
     if (!confirmed) return;
 
@@ -373,14 +609,18 @@ export default function LocalView({ state, setState }) {
 
       setState(prev => ({
         ...prev,
-        requests: prev.requests.map(current =>
-          current.id === request.id
-            ? {
-                ...current,
-                status: 'cancelled',
-              }
-            : current
-        ),
+        requests:
+          prev.requests.map(
+            current =>
+              current.id ===
+              request.id
+                ? {
+                    ...current,
+                    status:
+                      'cancelled',
+                  }
+                : current
+          ),
       }));
     } catch (error) {
       console.error(
@@ -395,11 +635,12 @@ export default function LocalView({ state, setState }) {
   }
 
   // --------------------------------------------------
-  // INICIAR SESIÓN
   // arrived -> in_progress
   // --------------------------------------------------
 
-  async function startSession(request) {
+  async function startSession(
+    request
+  ) {
     try {
       await updateRequestStatus(
         request.id,
@@ -408,14 +649,18 @@ export default function LocalView({ state, setState }) {
 
       setState(prev => ({
         ...prev,
-        requests: prev.requests.map(current =>
-          current.id === request.id
-            ? {
-                ...current,
-                status: 'in_progress',
-              }
-            : current
-        ),
+        requests:
+          prev.requests.map(
+            current =>
+              current.id ===
+              request.id
+                ? {
+                    ...current,
+                    status:
+                      'in_progress',
+                  }
+                : current
+          ),
       }));
     } catch (error) {
       console.error(
@@ -430,7 +675,7 @@ export default function LocalView({ state, setState }) {
   }
 
   // --------------------------------------------------
-  // ACTUALIZAR UBICACIÓN
+  // ACTUALIZAR UBICACIÓN MANUAL
   // --------------------------------------------------
 
   async function updateLocation() {
@@ -455,6 +700,13 @@ export default function LocalView({ state, setState }) {
         ),
       }));
 
+      if (isOnline) {
+        await goOnline(
+          user.id,
+          location
+        );
+      }
+
       setGeoStatus(
         `Ubicación actualizada · precisión ${Math.round(
           location.accuracy
@@ -469,7 +721,7 @@ export default function LocalView({ state, setState }) {
   }
 
   // --------------------------------------------------
-  // LOCAL CON SERVICIO ACTIVO
+  // SERVICIO ACTIVO
   // --------------------------------------------------
 
   if (mine) {
@@ -481,7 +733,9 @@ export default function LocalView({ state, setState }) {
           </p>
 
           <h1>
-            {statusLabel(mine.status)}
+            {statusLabel(
+              mine.status
+            )}
           </h1>
 
           <p>
@@ -493,7 +747,8 @@ export default function LocalView({ state, setState }) {
             )}
           </p>
 
-          {mine.status === 'matched' && (
+          {mine.status ===
+            'matched' && (
             <button
               onClick={() =>
                 startRoute(mine)
@@ -504,11 +759,13 @@ export default function LocalView({ state, setState }) {
             </button>
           )}
 
-          {mine.status === 'on_the_way' && (
+          {mine.status ===
+            'on_the_way' && (
             <div className="stack">
               <p className="statusLine">
-                Te estás desplazando hacia
-                el punto solicitado.
+                Te estás desplazando
+                hacia el punto
+                solicitado.
               </p>
 
               <button
@@ -516,16 +773,20 @@ export default function LocalView({ state, setState }) {
                   markArrived(mine)
                 }
               >
-                <LocateFixed size={16} />
+                <LocateFixed
+                  size={16}
+                />
                 He llegado
               </button>
             </div>
           )}
 
-          {mine.status === 'arrived' && (
+          {mine.status ===
+            'arrived' && (
             <div className="stack">
               <p className="statusLine">
-                Has llegado al punto solicitado.
+                Has llegado al punto
+                solicitado.
               </p>
 
               <button
@@ -539,13 +800,18 @@ export default function LocalView({ state, setState }) {
             </div>
           )}
 
-          {['matched', 'on_the_way'].includes(
+          {[
+            'matched',
+            'on_the_way',
+          ].includes(
             mine.status
           ) && (
             <button
               className="danger"
               onClick={() =>
-                cancelService(mine)
+                cancelService(
+                  mine
+                )
               }
             >
               Cancelar servicio
@@ -553,7 +819,8 @@ export default function LocalView({ state, setState }) {
           )}
         </section>
 
-        {mine.status === 'in_progress' && (
+        {mine.status ===
+          'in_progress' && (
           <SessionWorkspace
             request={mine}
             state={state}
@@ -566,99 +833,169 @@ export default function LocalView({ state, setState }) {
   }
 
   // --------------------------------------------------
-  // LOCAL DISPONIBLE
+  // LOCAL SIN SERVICIO ACTIVO
   // --------------------------------------------------
 
   return (
     <div className="stack">
       <section className="hero compact">
         <p className="eyebrow">
-          Local conectado
+          Local
         </p>
 
         <h1>{local.name}</h1>
 
         <p>
           Zonas:{' '}
-          {local.zones.join(', ')} · ⭐{' '}
-          {local.rating}
+          {local.zones.join(', ')} ·
+          ⭐ {local.rating}
         </p>
 
-        <div className="geoActions">
-          <button
-            onClick={updateLocation}
-          >
-            <LocateFixed size={16} />
-            Usar mi ubicación actual
-          </button>
-
-          {geoStatus && (
-            <small>
-              {geoStatus}
-            </small>
-          )}
-
-          {local.location && (
-            <small>
-              Lat{' '}
-              {local.location.lat.toFixed(4)}
-              , Lng{' '}
-              {local.location.lng.toFixed(4)}
-            </small>
-          )}
-        </div>
-      </section>
-
-      <section className="card">
-        <h2>
-          Solicitudes entrantes
-        </h2>
-
-        {incoming.length === 0 ? (
+        {onlineLoading ? (
           <p className="muted">
-            No hay solicitudes compatibles
-            ahora.
+            Comprobando
+            disponibilidad...
           </p>
-        ) : (
-          incoming.map(request => (
-            <div
-              className="requestCard"
-              key={request.id}
+        ) : isOnline ? (
+          <div className="stack">
+            <p className="statusLine">
+              🟢 Estás ONLINE
+            </p>
+
+            <button
+              className="danger"
+              onClick={
+                handleGoOffline
+              }
             >
-              <div>
-                <b>
-                  {request.zoneName}
-                </b>
+              Desconectarme
+            </button>
 
-                <span>
-                  {request.duration} min ·{' '}
-                  {request.price} € ·{' '}
-                  {formatDistance(
-                    request.distanceKm
-                  )}{' '}
-                  ·{' '}
-                  {request.etaMinutes ??
-                    '—'}{' '}
-                  min
-                </span>
+            <button
+              onClick={
+                updateLocation
+              }
+            >
+              <LocateFixed
+                size={16}
+              />
+              Actualizar ubicación
+            </button>
 
-                <small>
-                  {request.notes}
-                </small>
-              </div>
+            {geoStatus && (
+              <small>
+                {geoStatus}
+              </small>
+            )}
 
-              <button
-                onClick={() =>
-                  accept(request)
-                }
-              >
-                <UserCheck size={16} />
-                Aceptar
-              </button>
-            </div>
-          ))
+            {local.location && (
+              <small>
+                Lat{' '}
+                {local.location.lat.toFixed(
+                  4
+                )}
+                , Lng{' '}
+                {local.location.lng.toFixed(
+                  4
+                )}
+              </small>
+            )}
+          </div>
+        ) : (
+          <div className="stack">
+            <p className="statusLine">
+              ⚪ Estás OFFLINE
+            </p>
+
+            <button
+              className="primary"
+              onClick={
+                handleGoOnline
+              }
+            >
+              <LocateFixed
+                size={16}
+              />
+              Conectarme como
+              Local
+            </button>
+          </div>
         )}
       </section>
+
+      {isOnline ? (
+        <section className="card">
+          <h2>
+            Solicitudes entrantes
+          </h2>
+
+          {incoming.length === 0 ? (
+            <p className="muted">
+              No hay solicitudes
+              compatibles ahora.
+            </p>
+          ) : (
+            incoming.map(
+              request => (
+                <div
+                  className="requestCard"
+                  key={request.id}
+                >
+                  <div>
+                    <b>
+                      {
+                        request.zoneName
+                      }
+                    </b>
+
+                    <span>
+                      {
+                        request.duration
+                      }{' '}
+                      min ·{' '}
+                      {
+                        request.price
+                      }{' '}
+                      € ·{' '}
+                      {formatDistance(
+                        request.distanceKm
+                      )}{' '}
+                      ·{' '}
+                      {request.etaMinutes ??
+                        '—'}{' '}
+                      min
+                    </span>
+
+                    <small>
+                      {request.notes}
+                    </small>
+                  </div>
+
+                  <button
+                    onClick={() =>
+                      accept(
+                        request
+                      )
+                    }
+                  >
+                    <UserCheck
+                      size={16}
+                    />
+                    Aceptar
+                  </button>
+                </div>
+              )
+            )
+          )}
+        </section>
+      ) : (
+        <section className="card">
+          <p className="muted">
+            Conéctate como Local
+            para recibir solicitudes.
+          </p>
+        </section>
+      )}
     </div>
   );
 }
