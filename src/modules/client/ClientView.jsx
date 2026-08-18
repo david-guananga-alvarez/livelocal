@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Search, Video, CheckCircle, MapPin } from 'lucide-react';
 import { zones, prices } from '../../data/seed';
 import { getMatchingLocals, statusLabel } from '../matching/matching';
@@ -7,6 +7,7 @@ import ZoneMap from '../../components/ZoneMap';
 import SessionWorkspace from '../session/SessionWorkspace';
 import { createRequest } from '../requests/requestsService';
 import { useAuth } from '../auth/AuthProvider';
+import { supabase } from '../auth/supabaseClient';
 
 export default function ClientView({ state, setState }) {
   const { user } = useAuth();
@@ -16,6 +17,49 @@ export default function ClientView({ state, setState }) {
   const [notes, setNotes] = useState(
     'Enséñame la zona en directo y responde dudas.'
   );
+  useEffect(() => {
+  if (!supabase || !user?.id) return;
+
+  const channel = supabase
+    .channel(`client-requests-${user.id}`)
+    .on(
+      'postgres_changes',
+      {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'requests',
+      },
+      payload => {
+        const row = payload.new;
+
+        // Solo reaccionamos a peticiones de este cliente
+        if (row.client_id !== user.id) return;
+
+        console.log(
+          'Cambio de estado recibido por Cliente:',
+          row
+        );
+
+        setState(prev => ({
+          ...prev,
+          requests: prev.requests.map(request =>
+            request.id === row.id
+              ? {
+                  ...request,
+                  status: row.status,
+                  localId: row.local_id,
+                }
+              : request
+          ),
+        }));
+      }
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}, [user?.id]);
 
   const activeRequests = state.requests
     .filter(
@@ -150,6 +194,19 @@ export default function ClientView({ state, setState }) {
                       </button>
                     </div>
                   )}
+
+                  {request.status === 'on_the_way' && (
+  <div className="matched">
+    <CheckCircle size={18} />
+
+    <div>
+      <b>Tu Local está de camino</b>
+      <p>
+        Se está desplazando hacia el punto solicitado.
+      </p>
+    </div>
+  </div>
+)}
 
                   {request.status === 'in_progress' && (
                     <>
