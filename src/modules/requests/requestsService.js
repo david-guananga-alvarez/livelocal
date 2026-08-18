@@ -63,3 +63,20 @@ export async function acceptRequest(requestId, localId) {
 
   return data;
 }
+
+export async function updateRequestStatus(requestId, status) {
+  if (!supabase) {
+    throw new Error('Supabase no está configurado');
+  }
+
+  const { data, error } = await supabase
+    .from('requests')
+    .update({ status })
+    .eq('id', requestId)
+    .select()
+    .single();
+
+  if (error) throw error;
+
+  return data;
+}
