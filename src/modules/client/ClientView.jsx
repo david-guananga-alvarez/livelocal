@@ -1,4 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, {
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
+
 import {
   Search,
   CheckCircle,
@@ -28,24 +33,37 @@ import {
 import { useAuth } from '../auth/AuthProvider';
 import { supabase } from '../auth/supabaseClient';
 
-export default function ClientView({ state, setState }) {
+export default function ClientView({
+  state,
+  setState,
+}) {
   const { user } = useAuth();
 
-  const [zone, setZone] = useState('gothic');
-  const [duration, setDuration] = useState(15);
-  const [notes, setNotes] = useState(
-    'Enséñame la zona en directo y responde dudas.'
-  );
+  const [zone, setZone] =
+    useState('gothic');
+
+  const [duration, setDuration] =
+    useState(15);
+
+  const [notes, setNotes] =
+    useState(
+      'Enséñame la zona en directo y responde dudas.'
+    );
 
   // --------------------------------------------------
-  // REALTIME DE ESTADOS DE LAS PETICIONES DEL CLIENTE
+  // REALTIME:
+  // CAMBIOS DE ESTADO DE LAS PETICIONES DEL CLIENTE
   // --------------------------------------------------
 
   useEffect(() => {
-    if (!supabase || !user?.id) return;
+    if (!supabase || !user?.id) {
+      return;
+    }
 
     const channel = supabase
-      .channel(`client-requests-${user.id}`)
+      .channel(
+        `client-requests-${user.id}`
+      )
       .on(
         'postgres_changes',
         {
@@ -53,12 +71,17 @@ export default function ClientView({ state, setState }) {
           schema: 'public',
           table: 'requests',
         },
-        payload => {
-          const row = payload.new;
 
-          // Solo cambios correspondientes
-          // a este cliente
-          if (row.client_id !== user.id) {
+        payload => {
+          const row =
+            payload.new;
+
+          // Solo actualizaciones
+          // pertenecientes a este Cliente
+          if (
+            row.client_id !==
+            user.id
+          ) {
             return;
           }
 
@@ -70,34 +93,54 @@ export default function ClientView({ state, setState }) {
           setState(prev => ({
             ...prev,
 
-            requests: prev.requests.map(request =>
-              request.id === row.id
-                ? {
-                    ...request,
-                    status: row.status,
-                    localId: row.local_id,
-                  }
-                : request
-            ),
+            requests:
+              prev.requests.map(
+                request =>
+                  request.id ===
+                  row.id
+                    ? {
+                        ...request,
+
+                        status:
+                          row.status,
+
+                        localId:
+                          row.local_id,
+
+                        // Conservamos siempre
+                        // la fecha real de BD
+                        createdAt:
+                          row.created_at ??
+                          request.createdAt,
+                      }
+                    : request
+              ),
           }));
         }
       )
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(
+        channel
+      );
     };
   }, [user?.id]);
 
   // --------------------------------------------------
-  // REALTIME DE LA POSICIÓN DEL LOCAL
+  // REALTIME:
+  // POSICIÓN DEL LOCAL ASIGNADO
   // --------------------------------------------------
 
   useEffect(() => {
-    if (!supabase || !user?.id) return;
+    if (!supabase || !user?.id) {
+      return;
+    }
 
     const channel = supabase
-      .channel(`client-local-position-${user.id}`)
+      .channel(
+        `client-local-position-${user.id}`
+      )
       .on(
         'postgres_changes',
         {
@@ -105,8 +148,10 @@ export default function ClientView({ state, setState }) {
           schema: 'public',
           table: 'locals',
         },
+
         payload => {
-          const row = payload.new;
+          const row =
+            payload.new;
 
           if (!row?.user_id) {
             return;
@@ -120,103 +165,195 @@ export default function ClientView({ state, setState }) {
           setState(prev => ({
             ...prev,
 
-            requests: prev.requests.map(request => {
-              // Esta posición solo pertenece a las
-              // peticiones asignadas a este Local
-              if (
-                request.localId !== row.user_id
-              ) {
-                return request;
-              }
+            requests:
+              prev.requests.map(
+                request => {
+                  // La posición solo se aplica
+                  // a solicitudes asignadas
+                  // a este Local concreto.
+                  if (
+                    request.localId !==
+                    row.user_id
+                  ) {
+                    return request;
+                  }
 
-              return {
-                ...request,
+                  return {
+                    ...request,
 
-                liveLocalLocation: {
-                  lat: row.latitude,
-                  lng: row.longitude,
-                  accuracy: row.accuracy,
-                  updatedAt: row.updated_at,
-                },
-              };
-            }),
+                    liveLocalLocation:
+                      {
+                        lat:
+                          row.latitude,
+
+                        lng:
+                          row.longitude,
+
+                        accuracy:
+                          row.accuracy,
+
+                        updatedAt:
+                          row.updated_at,
+                      },
+                  };
+                }
+              ),
           }));
         }
       )
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(
+        channel
+      );
     };
   }, [user?.id]);
 
   // --------------------------------------------------
-  // PETICIONES ACTIVAS DEL CLIENTE
+  // ESTADOS CONSIDERADOS ACTIVOS PARA EL CLIENTE
   // --------------------------------------------------
 
-  const activeRequests = state.requests
-    .filter(
-      request =>
-        request.clientId === user?.id &&
-        request.status !== 'completed' &&
-        request.status !== 'cancelled'
-    )
-    .reverse();
+  const activeClientStatuses = [
+    'pending',
+    'matched',
+    'on_the_way',
+    'arrived',
+    'in_progress',
+  ];
 
-  const selectedZone = zones.find(
-    item => item.id === zone
-  );
+  // --------------------------------------------------
+  // PETICIONES ACTIVAS DEL CLIENTE
+  //
+  // El Cliente puede tener MÁS DE UNA.
+  // Siempre las mostramos:
+  //
+  // 1. solo si pertenecen al usuario
+  // 2. solo si están realmente activas
+  // 3. ordenadas de más reciente a más antigua
+  // --------------------------------------------------
 
-  const matches = useMemo(
-    () =>
-      getMatchingLocals(
+  const activeRequests =
+    state.requests
+      .filter(
+        request =>
+          request.clientId ===
+            user?.id &&
+          activeClientStatuses.includes(
+            request.status
+          )
+      )
+      .sort(
+        (a, b) =>
+          new Date(
+            b.createdAt
+          ).getTime() -
+          new Date(
+            a.createdAt
+          ).getTime()
+      );
+
+  // --------------------------------------------------
+  // ZONA + MATCHING ACTUAL
+  // --------------------------------------------------
+
+  const selectedZone =
+    zones.find(
+      item =>
+        item.id === zone
+    );
+
+  const matches =
+    useMemo(
+      () =>
+        getMatchingLocals(
+          state.locals,
+          zone,
+          zones
+        ),
+      [
         state.locals,
         zone,
-        zones
-      ),
-    [state.locals, zone]
-  );
+      ]
+    );
 
   // --------------------------------------------------
   // CREAR PETICIÓN
   // --------------------------------------------------
 
   async function requestNow() {
-    const best = matches[0];
+    if (!user?.id) {
+      alert(
+        'Debes iniciar sesión para crear una petición'
+      );
+
+      return;
+    }
+
+    if (!selectedZone) {
+      alert(
+        'No se pudo determinar la zona seleccionada'
+      );
+
+      return;
+    }
+
+    const best =
+      matches[0];
 
     const request = {
-      id: crypto.randomUUID(),
+      id:
+        crypto.randomUUID(),
 
-      clientId: user.id,
+      clientId:
+        user.id,
 
-      zoneId: zone,
-      zoneName: selectedZone.name,
-      zoneCenter: selectedZone.center,
+      zoneId:
+        zone,
+
+      zoneName:
+        selectedZone.name,
+
+      zoneCenter:
+        selectedZone.center,
 
       duration,
-      price: prices[duration],
+
+      price:
+        prices[duration],
+
       notes,
 
-      status: 'pending',
+      status:
+        'pending',
 
+      // ISO para que la ordenación sea fiable
+      // en todos los navegadores.
       createdAt:
-        new Date().toLocaleString(),
+        new Date().toISOString(),
 
-      localId: null,
+      localId:
+        null,
 
       candidateLocalIds:
-        matches.map(local => local.id),
+        matches.map(
+          local =>
+            local.id
+        ),
 
       bestEta:
         best?.etaMinutes ??
         selectedZone.eta,
 
       bestDistanceKm:
-        best?.distanceKm ?? null,
+        best?.distanceKm ??
+        null,
     };
 
     try {
-      await createRequest(request);
+      await createRequest(
+        request
+      );
 
       setState(prev => ({
         ...prev,
@@ -240,15 +377,22 @@ export default function ClientView({ state, setState }) {
 
   // --------------------------------------------------
   // CANCELAR
-  // pending / matched / on_the_way -> cancelled
+  //
+  // pending / matched / on_the_way
+  // -> cancelled
   // --------------------------------------------------
 
-  async function cancelRequest(request) {
-    const confirmed = window.confirm(
-      '¿Quieres cancelar esta solicitud?'
-    );
+  async function cancelRequest(
+    request
+  ) {
+    const confirmed =
+      window.confirm(
+        '¿Quieres cancelar esta solicitud?'
+      );
 
-    if (!confirmed) return;
+    if (!confirmed) {
+      return;
+    }
 
     try {
       await updateRequestStatus(
@@ -259,14 +403,19 @@ export default function ClientView({ state, setState }) {
       setState(prev => ({
         ...prev,
 
-        requests: prev.requests.map(current =>
-          current.id === request.id
-            ? {
-                ...current,
-                status: 'cancelled',
-              }
-            : current
-        ),
+        requests:
+          prev.requests.map(
+            current =>
+              current.id ===
+              request.id
+                ? {
+                    ...current,
+
+                    status:
+                      'cancelled',
+                  }
+                : current
+          ),
       }));
     } catch (error) {
       console.error(
@@ -282,10 +431,13 @@ export default function ClientView({ state, setState }) {
 
   // --------------------------------------------------
   // FINALIZAR SESIÓN
+  //
   // in_progress -> completed
   // --------------------------------------------------
 
-  async function complete(request) {
+  async function complete(
+    request
+  ) {
     try {
       await updateRequestStatus(
         request.id,
@@ -295,14 +447,19 @@ export default function ClientView({ state, setState }) {
       setState(prev => ({
         ...prev,
 
-        requests: prev.requests.map(current =>
-          current.id === request.id
-            ? {
-                ...current,
-                status: 'completed',
-              }
-            : current
-        ),
+        requests:
+          prev.requests.map(
+            current =>
+              current.id ===
+              request.id
+                ? {
+                    ...current,
+
+                    status:
+                      'completed',
+                  }
+                : current
+          ),
       }));
     } catch (error) {
       console.error(
@@ -326,6 +483,7 @@ export default function ClientView({ state, setState }) {
       {/* CABECERA */}
 
       <section className="hero">
+
         <p className="eyebrow">
           LiveLocal Barcelona
         </p>
@@ -340,13 +498,16 @@ export default function ClientView({ state, setState }) {
           distancia aproximada de los
           locales disponibles.
         </p>
+
       </section>
 
       {/* --------------------------------------------------
           PETICIONES ACTIVAS
       -------------------------------------------------- */}
 
-      {activeRequests.length > 0 && (
+      {activeRequests.length >
+        0 && (
+
         <section className="card">
 
           <h2>
@@ -355,258 +516,301 @@ export default function ClientView({ state, setState }) {
 
           <div className="stack">
 
-            {activeRequests.map(request => {
+            {activeRequests.map(
+              request => {
 
-              const local =
-                state.locals.find(
-                  item =>
-                    item.id ===
-                    request.localId
-                );
+                const local =
+                  state.locals.find(
+                    item =>
+                      item.id ===
+                      request.localId
+                  );
 
-              return (
-                <div
-                  className="requestCard"
-                  key={request.id}
-                >
+                return (
+                  <div
+                    className="requestCard"
+                    key={
+                      request.id
+                    }
+                  >
 
-                  {/* INFORMACIÓN BÁSICA */}
+                    {/* INFORMACIÓN */}
 
-                  <div>
-                    <b>
-                      {request.zoneName}
-                    </b>
+                    <div>
 
-                    <p>
-                      {request.duration} min ·{' '}
-                      {request.price} €
-                    </p>
+                      <b>
+                        {
+                          request.zoneName
+                        }
+                      </b>
 
-                    <small>
-                      {statusLabel(
+                      <p>
+                        {
+                          request.duration
+                        }{' '}
+                        min ·{' '}
+                        {
+                          request.price
+                        }{' '}
+                        €
+                      </p>
+
+                      <small>
+                        {statusLabel(
+                          request.status
+                        )}
+                      </small>
+
+                    </div>
+
+                    {/* PENDING */}
+
+                    {request.status ===
+                      'pending' && (
+
+                      <div className="searching">
+
+                        <span />
+
+                        Buscando local cercano...
+
+                      </div>
+                    )}
+
+                    {/* MATCHED */}
+
+                    {request.status ===
+                      'matched' && (
+
+                      <div className="matched">
+
+                        <CheckCircle
+                          size={18}
+                        />
+
+                        <div>
+
+                          <b>
+                            Local encontrado
+                          </b>
+
+                          <p>
+                            {local?.name ??
+                              'Un Local ha aceptado tu solicitud.'}
+                          </p>
+
+                          <small>
+                            Esperando a que
+                            inicie el
+                            desplazamiento.
+                          </small>
+
+                        </div>
+
+                      </div>
+                    )}
+
+                    {/* ON THE WAY */}
+
+                    {request.status ===
+                      'on_the_way' && (
+
+                      <div className="matched">
+
+                        <Navigation
+                          size={18}
+                        />
+
+                        <div>
+
+                          <b>
+                            Tu Local está de
+                            camino
+                          </b>
+
+                          <p>
+                            Se está desplazando
+                            hacia el punto
+                            solicitado.
+                          </p>
+
+                        </div>
+
+                      </div>
+                    )}
+
+                    {/* --------------------------------------------------
+                        GPS DEL LOCAL EN DIRECTO
+                    -------------------------------------------------- */}
+
+                    {request.liveLocalLocation &&
+                      [
+                        'matched',
+                        'on_the_way',
+                        'arrived',
+                        'in_progress',
+                      ].includes(
                         request.status
-                      )}
-                    </small>
-                  </div>
+                      ) && (
 
-                  {/* PENDING */}
+                      <div className="locationBox">
 
-                  {request.status ===
-                    'pending' && (
+                        <div>
 
-                    <div className="searching">
-                      <span />
+                          <b>
+                            <MapPin
+                              size={15}
+                            />
+                            {' '}
+                            Local en directo
+                          </b>
 
-                      Buscando local cercano...
-                    </div>
-                  )}
+                          <p>
+                            Lat{' '}
+                            {Number(
+                              request
+                                .liveLocalLocation
+                                .lat
+                            ).toFixed(
+                              6
+                            )}
+                            {' · '}
+                            Lng{' '}
+                            {Number(
+                              request
+                                .liveLocalLocation
+                                .lng
+                            ).toFixed(
+                              6
+                            )}
+                          </p>
 
-                  {/* MATCHED */}
+                          <small>
+                            Precisión:{' '}
+                            {Math.round(
+                              request
+                                .liveLocalLocation
+                                .accuracy ??
+                                0
+                            )}{' '}
+                            m
+                          </small>
 
-                  {request.status ===
-                    'matched' && (
+                          {request
+                            .liveLocalLocation
+                            .updatedAt && (
 
-                    <div className="matched">
+                            <small>
+                              {' · '}
+                              Actualizado{' '}
+                              {new Date(
+                                request
+                                  .liveLocalLocation
+                                  .updatedAt
+                              ).toLocaleTimeString()}
+                            </small>
+                          )}
 
-                      <CheckCircle
-                        size={18}
-                      />
+                        </div>
 
-                      <div>
-                        <b>
-                          Local encontrado
-                        </b>
-
-                        <p>
-                          {local?.name ??
-                            'Un Local ha aceptado tu solicitud.'}
-                        </p>
-
-                        <small>
-                          Esperando a que
-                          inicie el
-                          desplazamiento.
-                        </small>
                       </div>
+                    )}
 
-                    </div>
-                  )}
+                    {/* ARRIVED */}
 
-                  {/* ON THE WAY */}
+                    {request.status ===
+                      'arrived' && (
 
-                  {request.status ===
-                    'on_the_way' && (
+                      <div className="matched">
 
-                    <div className="matched">
+                        <CheckCircle
+                          size={18}
+                        />
 
-                      <Navigation
-                        size={18}
-                      />
+                        <div>
 
-                      <div>
-                        <b>
-                          Tu Local está de camino
-                        </b>
+                          <b>
+                            Tu Local ha llegado
+                          </b>
 
-                        <p>
-                          Se está desplazando hacia
-                          el punto solicitado.
-                        </p>
+                          <p>
+                            Ya está en el punto
+                            solicitado.
+                          </p>
+
+                          <small>
+                            El Local puede iniciar
+                            ahora la sesión.
+                          </small>
+
+                        </div>
+
                       </div>
+                    )}
 
-                    </div>
-                  )}
+                    {/* CANCELACIÓN */}
 
-                  {/* --------------------------------------------------
-                      POSICIÓN GPS EN DIRECTO
-                  -------------------------------------------------- */}
-
-                  {request.liveLocalLocation &&
-                    [
+                    {[
+                      'pending',
                       'matched',
                       'on_the_way',
-                      'arrived',
-                      'in_progress',
                     ].includes(
                       request.status
                     ) && (
 
-                    <div className="locationBox">
-
-                      <div>
-                        <b>
-                          <MapPin size={15} />
-                          {' '}
-                          Local en directo
-                        </b>
-
-                        <p>
-                          Lat{' '}
-                          {Number(
-                            request
-                              .liveLocalLocation
-                              .lat
-                          ).toFixed(6)}
-                          {' · '}
-                          Lng{' '}
-                          {Number(
-                            request
-                              .liveLocalLocation
-                              .lng
-                          ).toFixed(6)}
-                        </p>
-
-                        <small>
-                          Precisión:{' '}
-                          {Math.round(
-                            request
-                              .liveLocalLocation
-                              .accuracy ?? 0
-                          )}{' '}
-                          m
-                        </small>
-
-                        {request
-                          .liveLocalLocation
-                          .updatedAt && (
-
-                          <small>
-                            {' · '}
-                            Actualizado{' '}
-                            {new Date(
-                              request
-                                .liveLocalLocation
-                                .updatedAt
-                            ).toLocaleTimeString()}
-                          </small>
-                        )}
-
-                      </div>
-
-                    </div>
-                  )}
-
-                  {/* ARRIVED */}
-
-                  {request.status ===
-                    'arrived' && (
-
-                    <div className="matched">
-
-                      <CheckCircle
-                        size={18}
-                      />
-
-                      <div>
-                        <b>
-                          Tu Local ha llegado
-                        </b>
-
-                        <p>
-                          Ya está en el punto
-                          solicitado.
-                        </p>
-
-                        <small>
-                          El Local puede iniciar
-                          ahora la sesión.
-                        </small>
-                      </div>
-
-                    </div>
-                  )}
-
-                  {/* CANCELACIÓN */}
-
-                  {[
-                    'pending',
-                    'matched',
-                    'on_the_way',
-                  ].includes(
-                    request.status
-                  ) && (
-
-                    <button
-                      className="danger"
-                      onClick={() =>
-                        cancelRequest(
-                          request
-                        )
-                      }
-                    >
-                      Cancelar solicitud
-                    </button>
-                  )}
-
-                  {/* SESIÓN */}
-
-                  {request.status ===
-                    'in_progress' && (
-
-                    <>
-                      <SessionWorkspace
-                        request={request}
-                        state={state}
-                        setState={setState}
-                        role="Cliente"
-                      />
-
                       <button
-                        className="success"
+                        className="danger"
                         onClick={() =>
-                          complete(request)
+                          cancelRequest(
+                            request
+                          )
                         }
                       >
-                        Finalizar servicio
+                        Cancelar solicitud
                       </button>
-                    </>
-                  )}
+                    )}
 
-                </div>
-              );
-            })}
+                    {/* SESIÓN */}
+
+                    {request.status ===
+                      'in_progress' && (
+
+                      <>
+
+                        <SessionWorkspace
+                          request={
+                            request
+                          }
+                          state={
+                            state
+                          }
+                          setState={
+                            setState
+                          }
+                          role="Cliente"
+                        />
+
+                        <button
+                          className="success"
+                          onClick={() =>
+                            complete(
+                              request
+                            )
+                          }
+                        >
+                          Finalizar servicio
+                        </button>
+
+                      </>
+                    )}
+
+                  </div>
+                );
+              }
+            )}
 
           </div>
+
         </section>
       )}
 
@@ -621,25 +825,38 @@ export default function ClientView({ state, setState }) {
         </h2>
 
         <ZoneMap
-          zones={zones}
-          selected={zone}
-          onSelect={setZone}
+          zones={
+            zones
+          }
+          selected={
+            zone
+          }
+          onSelect={
+            setZone
+          }
         />
 
         <div className="coverageBox">
 
-          <MapPin size={18} />
+          <MapPin
+            size={18}
+          />
 
           <div>
 
             <b>
-              {selectedZone.name}
+              {
+                selectedZone.name
+              }
             </b>
 
             <span>
-              {matches.length} locales
-              compatibles · ETA{' '}
-              {matches[0]?.etaMinutes ??
+              {
+                matches.length
+              }{' '}
+              locales compatibles · ETA{' '}
+              {matches[0]
+                ?.etaMinutes ??
                 selectedZone.eta}{' '}
               min
             </span>
@@ -648,7 +865,11 @@ export default function ClientView({ state, setState }) {
 
               <small>
                 Más cercano:{' '}
-                {matches[0].name},{' '}
+                {
+                  matches[0]
+                    .name
+                }
+                ,{' '}
                 {formatDistance(
                   matches[0]
                     .distanceKm
@@ -657,21 +878,29 @@ export default function ClientView({ state, setState }) {
             )}
 
           </div>
+
         </div>
 
         <div className="formRow">
 
           <label>
+
             Duración
 
             <select
-              value={duration}
-              onChange={event =>
-                setDuration(
-                  +event.target.value
-                )
+              value={
+                duration
+              }
+              onChange={
+                event =>
+                  setDuration(
+                    +event
+                      .target
+                      .value
+                  )
               }
             >
+
               <option value="15">
                 15 min · 15 €
               </option>
@@ -683,31 +912,46 @@ export default function ClientView({ state, setState }) {
               <option value="45">
                 45 min · 35 €
               </option>
+
             </select>
+
           </label>
 
           <label>
+
             Instrucciones
 
             <textarea
-              value={notes}
-              onChange={event =>
-                setNotes(
-                  event.target.value
-                )
+              value={
+                notes
+              }
+              onChange={
+                event =>
+                  setNotes(
+                    event
+                      .target
+                      .value
+                  )
               }
             />
+
           </label>
 
         </div>
 
         <button
           className="primary big"
-          onClick={requestNow}
+          onClick={
+            requestNow
+          }
         >
-          <Search size={18} />
+
+          <Search
+            size={18}
+          />
 
           Pedir local ahora
+
         </button>
 
       </section>

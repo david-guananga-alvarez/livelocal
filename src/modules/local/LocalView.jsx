@@ -85,9 +85,6 @@ export default function LocalView({ state, setState }) {
 
   const watchIdRef = useRef(null);
 
-  // Última posición GPS válida conocida.
-  // El heartbeat seguirá enviando esta posición
-  // aunque watchPosition no genere una lectura nueva.
   const lastTrackedLocationRef =
     useRef(null);
 
@@ -99,10 +96,6 @@ export default function LocalView({ state, setState }) {
   // --------------------------------------------------
 
   useEffect(() => {
-    // -----------------------------------------------
-    // OFFLINE
-    // -----------------------------------------------
-
     if (!isOnline || !user?.id) {
       if (watchIdRef.current != null) {
         stopOptimizedTracking(
@@ -125,10 +118,6 @@ export default function LocalView({ state, setState }) {
       return;
     }
 
-    // -----------------------------------------------
-    // ARRANCAR WATCHPOSITION
-    // -----------------------------------------------
-
     if (watchIdRef.current == null) {
       try {
         watchIdRef.current =
@@ -141,11 +130,9 @@ export default function LocalView({ state, setState }) {
               location,
               quality
             ) => {
-              // Guardar como última posición válida
               lastTrackedLocationRef.current =
                 location;
 
-              // Actualizar estado React
               setState(prev => ({
                 ...prev,
 
@@ -164,7 +151,6 @@ export default function LocalView({ state, setState }) {
                 `Ubicación en directo · precisión ${location.accuracy} m · calidad ${quality.label}`
               );
 
-              // Guardar posición en Supabase
               try {
                 await updateLocalLocation(
                   user.id,
@@ -207,16 +193,9 @@ export default function LocalView({ state, setState }) {
       }
     }
 
-    // -----------------------------------------------
-    // HEARTBEAT
-    //
-    // watchPosition no garantiza una lectura cada X
-    // segundos. Si el móvil está quieto puede dejar
-    // de emitir.
-    //
-    // Cada 5 segundos reenviamos la última posición
-    // válida para mantener actualizado updated_at.
-    // -----------------------------------------------
+    // Heartbeat:
+    // aunque watchPosition no produzca una lectura nueva,
+    // reenviamos la última posición válida cada 5 segundos.
 
     if (
       locationHeartbeatRef.current == null
@@ -243,10 +222,8 @@ export default function LocalView({ state, setState }) {
               console.log(
                 'Heartbeat GPS enviado:',
                 {
-                  lat:
-                    location.lat,
-                  lng:
-                    location.lng,
+                  lat: location.lat,
+                  lng: location.lng,
                   accuracy:
                     location.accuracy,
                   at:
@@ -263,12 +240,6 @@ export default function LocalView({ state, setState }) {
           LOCATION_HEARTBEAT_MS
         );
     }
-
-    // -----------------------------------------------
-    // CLEANUP
-    // Solo al ponerse Offline, cambiar usuario
-    // o desmontar LocalView
-    // -----------------------------------------------
 
     return () => {
       if (
@@ -328,10 +299,6 @@ export default function LocalView({ state, setState }) {
               null,
           };
 
-          // Muy importante:
-          // el heartbeat ya conoce la última
-          // posición incluso antes de recibir
-          // una nueva lectura GPS.
           lastTrackedLocationRef.current =
             location;
 
@@ -653,12 +620,54 @@ export default function LocalView({ state, setState }) {
     ]);
 
   // --------------------------------------------------
+  // ESTADOS QUE CONSIDERAMOS SERVICIO ACTIVO
+  // --------------------------------------------------
+
+  const activeLocalStatuses = [
+    'matched',
+    'on_the_way',
+    'arrived',
+    'in_progress',
+  ];
+
+  // --------------------------------------------------
+  // SERVICIO ACTIVO DEL LOCAL
+  //
+  // Si existen varias solicitudes antiguas asignadas
+  // al mismo Local, utilizamos únicamente la activa
+  // más reciente.
+  // --------------------------------------------------
+
+  const mine = enrichedRequests
+    .filter(
+      request =>
+        request.localId === local.id &&
+        activeLocalStatuses.includes(
+          request.status
+        )
+    )
+    .sort(
+      (a, b) =>
+        new Date(
+          b.createdAt
+        ).getTime() -
+        new Date(
+          a.createdAt
+        ).getTime()
+    )[0];
+
+  // --------------------------------------------------
   // SOLICITUDES ENTRANTES
+  //
+  // Si el Local ya tiene un servicio activo,
+  // no mostramos nuevas solicitudes.
   // --------------------------------------------------
 
   const incoming =
     enrichedRequests.filter(
       request =>
+        !mine &&
+
         isOnline &&
 
         request.status ===
@@ -679,23 +688,6 @@ export default function LocalView({ state, setState }) {
     );
 
   // --------------------------------------------------
-  // SERVICIO ASIGNADO AL LOCAL
-  // --------------------------------------------------
-
-  const mine =
-    enrichedRequests.find(
-      request =>
-        request.localId ===
-          local.id &&
-
-        request.status !==
-          'completed' &&
-
-        request.status !==
-          'cancelled'
-    );
-
-  // --------------------------------------------------
   // ONLINE
   // --------------------------------------------------
 
@@ -710,8 +702,6 @@ export default function LocalView({ state, setState }) {
       const location =
         await getBrowserLocation();
 
-      // Guardamos inmediatamente esta primera
-      // posición para que el heartbeat pueda usarla.
       lastTrackedLocationRef.current =
         location;
 
@@ -803,6 +793,16 @@ export default function LocalView({ state, setState }) {
   async function accept(
     request
   ) {
+    // Protección adicional:
+    // aunque la UI no muestre solicitudes si existe
+    // mine, evitamos aceptar otra por accidente.
+    if (mine) {
+      alert(
+        'Ya tienes un servicio activo'
+      );
+      return;
+    }
+
     try {
       await acceptRequest(
         request.id,
@@ -1103,8 +1103,6 @@ export default function LocalView({ state, setState }) {
               mine.distanceKm
             )}
           </p>
-
-          {/* GPS sigue activo en cualquier estado */}
 
           {isOnline &&
             local.location && (
