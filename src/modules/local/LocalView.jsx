@@ -1,6 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 
 import {
+  startOptimizedTracking,
+  stopOptimizedTracking,
+} from '../location/liveTracking';
+
+import {
   UserCheck,
   Play,
   LocateFixed,
@@ -58,80 +63,79 @@ const watchIdRef = useRef(null);
   // --------------------------------------------------
 useEffect(() => {
   if (!isOnline || !user?.id) {
-    if (watchIdRef.current !== null) {
-      navigator.geolocation.clearWatch(watchIdRef.current);
+    if (watchIdRef.current != null) {
+      stopOptimizedTracking(watchIdRef.current);
       watchIdRef.current = null;
     }
 
     return;
   }
 
-  if (!navigator.geolocation) {
-    console.error('Geolocalización no soportada');
+  if (watchIdRef.current != null) {
     return;
   }
 
-  watchIdRef.current = navigator.geolocation.watchPosition(
-    async position => {
-      const location = {
-        lat: position.coords.latitude,
-        lng: position.coords.longitude,
-        accuracy: position.coords.accuracy,
-      };
+  try {
+    watchIdRef.current = startOptimizedTracking({
+      initialLocation: local.location,
 
-      // Actualizamos estado local
-      setState(prev => ({
-        ...prev,
-        locals: prev.locals.map((storedLocal, index) =>
-          index === 0
-            ? {
-                ...storedLocal,
-                location,
-              }
-            : storedLocal
-        ),
-      }));
+      onLocation: async (location, quality) => {
+        setState(prev => ({
+          ...prev,
+          locals: prev.locals.map(
+            (storedLocal, index) =>
+              index === 0
+                ? {
+                    ...storedLocal,
+                    location,
+                  }
+                : storedLocal
+          ),
+        }));
 
-      setGeoStatus(
-        `Ubicación en directo · precisión ${Math.round(
-          location.accuracy
-        )} m`
-      );
-
-      // Persistimos en Supabase
-      try {
-        await updateLocalLocation(
-          user.id,
-          location
+        setGeoStatus(
+          `Ubicación en directo · precisión ${location.accuracy} m · calidad ${quality.label}`
         );
-      } catch (error) {
+
+        try {
+          await updateLocalLocation(
+            user.id,
+            location
+          );
+        } catch (error) {
+          console.error(
+            'Error guardando ubicación optimizada en Supabase:',
+            error
+          );
+        }
+      },
+
+      onRejected: reason => {
+        setGeoStatus(reason);
+      },
+
+      onError: error => {
         console.error(
-          'Error actualizando ubicación en Supabase:',
+          'Error en tracking optimizado:',
           error
         );
-      }
-    },
-    error => {
-      console.error(
-        'Error watchPosition:',
-        error
-      );
 
-      setGeoStatus(
-        error?.message ||
-          'No se pudo actualizar la ubicación'
-      );
-    },
-    {
-      enableHighAccuracy: true,
-      maximumAge: 3000,
-      timeout: 10000,
-    }
-  );
+        setGeoStatus(
+          error?.message ||
+            'No se pudo actualizar la ubicación'
+        );
+      },
+    });
+  } catch (error) {
+    console.error(
+      'No se pudo iniciar tracking optimizado:',
+      error
+    );
+  }
 
   return () => {
-    if (watchIdRef.current !== null) {
-      navigator.geolocation.clearWatch(
+    if (watchIdRef.current != null) {
+      stopOptimizedTracking(
         watchIdRef.current
       );
 
