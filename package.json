@@ -5,12 +5,13 @@
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {
+    "@supabase/supabase-js": "latest",
     "@vitejs/plugin-react": "latest",
-    "vite": "latest",
+    "leaflet": "^1.9.4",
+    "lucide-react": "latest",
     "react": "latest",
     "react-dom": "latest",
-    "lucide-react": "latest",
-    "@supabase/supabase-js": "latest"
-  },
-  "devDependencies": {}
+    "react-leaflet": "^5.0.0",
+    "vite": "latest"
+  }
 }

@@ -23,6 +23,8 @@ import {
 } from '../location/location';
 
 import ZoneMap from '../../components/ZoneMap';
+import LiveTrackingMap from '../../components/LiveTrackingMap';
+
 import SessionWorkspace from '../session/SessionWorkspace';
 
 import {
@@ -76,8 +78,6 @@ export default function ClientView({
           const row =
             payload.new;
 
-          // Solo actualizaciones
-          // pertenecientes a este Cliente
           if (
             row.client_id !==
             user.id
@@ -107,8 +107,6 @@ export default function ClientView({
                         localId:
                           row.local_id,
 
-                        // Conservamos siempre
-                        // la fecha real de BD
                         createdAt:
                           row.created_at ??
                           request.createdAt,
@@ -168,9 +166,6 @@ export default function ClientView({
             requests:
               prev.requests.map(
                 request => {
-                  // La posición solo se aplica
-                  // a solicitudes asignadas
-                  // a este Local concreto.
                   if (
                     request.localId !==
                     row.user_id
@@ -211,7 +206,7 @@ export default function ClientView({
   }, [user?.id]);
 
   // --------------------------------------------------
-  // ESTADOS CONSIDERADOS ACTIVOS PARA EL CLIENTE
+  // ESTADOS ACTIVOS DEL CLIENTE
   // --------------------------------------------------
 
   const activeClientStatuses = [
@@ -223,14 +218,7 @@ export default function ClientView({
   ];
 
   // --------------------------------------------------
-  // PETICIONES ACTIVAS DEL CLIENTE
-  //
-  // El Cliente puede tener MÁS DE UNA.
-  // Siempre las mostramos:
-  //
-  // 1. solo si pertenecen al usuario
-  // 2. solo si están realmente activas
-  // 3. ordenadas de más reciente a más antigua
+  // PETICIONES ACTIVAS
   // --------------------------------------------------
 
   const activeRequests =
@@ -254,7 +242,7 @@ export default function ClientView({
       );
 
   // --------------------------------------------------
-  // ZONA + MATCHING ACTUAL
+  // ZONA + MATCHING
   // --------------------------------------------------
 
   const selectedZone =
@@ -327,8 +315,6 @@ export default function ClientView({
       status:
         'pending',
 
-      // ISO para que la ordenación sea fiable
-      // en todos los navegadores.
       createdAt:
         new Date().toISOString(),
 
@@ -377,9 +363,6 @@ export default function ClientView({
 
   // --------------------------------------------------
   // CANCELAR
-  //
-  // pending / matched / on_the_way
-  // -> cancelled
   // --------------------------------------------------
 
   async function cancelRequest(
@@ -410,7 +393,6 @@ export default function ClientView({
               request.id
                 ? {
                     ...current,
-
                     status:
                       'cancelled',
                   }
@@ -431,8 +413,6 @@ export default function ClientView({
 
   // --------------------------------------------------
   // FINALIZAR SESIÓN
-  //
-  // in_progress -> completed
   // --------------------------------------------------
 
   async function complete(
@@ -454,7 +434,6 @@ export default function ClientView({
               request.id
                 ? {
                     ...current,
-
                     status:
                       'completed',
                   }
@@ -524,6 +503,17 @@ export default function ClientView({
                     item =>
                       item.id ===
                       request.localId
+                  );
+
+                const showLiveTracking =
+                  request.liveLocalLocation &&
+                  [
+                    'matched',
+                    'on_the_way',
+                    'arrived',
+                    'in_progress',
+                  ].includes(
+                    request.status
                   );
 
                 return (
@@ -640,18 +630,10 @@ export default function ClientView({
                     )}
 
                     {/* --------------------------------------------------
-                        GPS DEL LOCAL EN DIRECTO
+                        GPS DEL LOCAL
                     -------------------------------------------------- */}
 
-                    {request.liveLocalLocation &&
-                      [
-                        'matched',
-                        'on_the_way',
-                        'arrived',
-                        'in_progress',
-                      ].includes(
-                        request.status
-                      ) && (
+                    {showLiveTracking && (
 
                       <div className="locationBox">
 
@@ -712,6 +694,33 @@ export default function ClientView({
                           )}
 
                         </div>
+
+                      </div>
+                    )}
+
+                    {/* --------------------------------------------------
+                        MAPA EN DIRECTO
+                    -------------------------------------------------- */}
+
+                    {showLiveTracking &&
+                      request.zoneCenter && (
+
+                      <div
+                        style={{
+                          marginTop:
+                            '12px',
+                        }}
+                      >
+
+                        <LiveTrackingMap
+                          target={
+                            request.zoneCenter
+                          }
+
+                          localLocation={
+                            request.liveLocalLocation
+                          }
+                        />
 
                       </div>
                     )}
