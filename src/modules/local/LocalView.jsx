@@ -27,6 +27,8 @@ import {
   getBrowserLocation,
 } from '../location/location';
 
+import LiveTrackingMap from '../../components/LiveTrackingMap';
+
 import SessionWorkspace from '../session/SessionWorkspace';
 
 import {
@@ -192,10 +194,6 @@ export default function LocalView({ state, setState }) {
         );
       }
     }
-
-    // Heartbeat:
-    // aunque watchPosition no produzca una lectura nueva,
-    // reenviamos la última posición válida cada 5 segundos.
 
     if (
       locationHeartbeatRef.current == null
@@ -620,7 +618,7 @@ export default function LocalView({ state, setState }) {
     ]);
 
   // --------------------------------------------------
-  // ESTADOS QUE CONSIDERAMOS SERVICIO ACTIVO
+  // ESTADOS ACTIVOS
   // --------------------------------------------------
 
   const activeLocalStatuses = [
@@ -632,10 +630,6 @@ export default function LocalView({ state, setState }) {
 
   // --------------------------------------------------
   // SERVICIO ACTIVO DEL LOCAL
-  //
-  // Si existen varias solicitudes antiguas asignadas
-  // al mismo Local, utilizamos únicamente la activa
-  // más reciente.
   // --------------------------------------------------
 
   const mine = enrichedRequests
@@ -658,9 +652,6 @@ export default function LocalView({ state, setState }) {
 
   // --------------------------------------------------
   // SOLICITUDES ENTRANTES
-  //
-  // Si el Local ya tiene un servicio activo,
-  // no mostramos nuevas solicitudes.
   // --------------------------------------------------
 
   const incoming =
@@ -787,15 +778,11 @@ export default function LocalView({ state, setState }) {
 
   // --------------------------------------------------
   // ACEPTAR
-  // pending -> matched
   // --------------------------------------------------
 
   async function accept(
     request
   ) {
-    // Protección adicional:
-    // aunque la UI no muestre solicitudes si existe
-    // mine, evitamos aceptar otra por accidente.
     if (mine) {
       alert(
         'Ya tienes un servicio activo'
@@ -1106,6 +1093,7 @@ export default function LocalView({ state, setState }) {
 
           {isOnline &&
             local.location && (
+
               <small>
                 GPS compartido · Lat{' '}
                 {local.location.lat.toFixed(
@@ -1132,13 +1120,38 @@ export default function LocalView({ state, setState }) {
             </small>
           )}
 
+          {/* MAPA DEL LOCAL */}
+
+          {isOnline &&
+            local.location && (
+
+              <div
+                className="activeRequestMap"
+                style={{
+                  marginTop:
+                    '18px',
+                  width:
+                    '100%',
+                }}
+              >
+                <LiveTrackingMap
+                  localLocation={
+                    local.location
+                  }
+                />
+              </div>
+            )}
+
           {/* MATCHED */}
 
           {mine.status ===
             'matched' && (
+
             <button
               onClick={() =>
-                startRoute(mine)
+                startRoute(
+                  mine
+                )
               }
             >
               <Play size={16} />
@@ -1151,6 +1164,7 @@ export default function LocalView({ state, setState }) {
 
           {mine.status ===
             'on_the_way' && (
+
             <div className="stack">
 
               <p className="statusLine">
@@ -1180,6 +1194,7 @@ export default function LocalView({ state, setState }) {
 
           {mine.status ===
             'arrived' && (
+
             <div className="stack">
 
               <p className="statusLine">
@@ -1200,7 +1215,9 @@ export default function LocalView({ state, setState }) {
                   )
                 }
               >
-                <Video size={16} />
+                <Video
+                  size={16}
+                />
 
                 Entrar en sesión
               </button>
@@ -1216,6 +1233,7 @@ export default function LocalView({ state, setState }) {
           ].includes(
             mine.status
           ) && (
+
             <button
               className="danger"
               onClick={() =>
@@ -1234,6 +1252,7 @@ export default function LocalView({ state, setState }) {
 
         {mine.status ===
           'in_progress' && (
+
           <SessionWorkspace
             request={mine}
             state={state}
@@ -1313,6 +1332,7 @@ export default function LocalView({ state, setState }) {
             )}
 
             {local.location && (
+
               <small>
                 Lat{' '}
                 {local.location.lat.toFixed(
@@ -1324,6 +1344,27 @@ export default function LocalView({ state, setState }) {
                   6
                 )}
               </small>
+            )}
+
+            {/* MAPA DEL LOCAL ONLINE */}
+
+            {local.location && (
+
+              <div
+                className="activeRequestMap"
+                style={{
+                  marginTop:
+                    '16px',
+                  width:
+                    '100%',
+                }}
+              >
+                <LiveTrackingMap
+                  localLocation={
+                    local.location
+                  }
+                />
+              </div>
             )}
 
           </div>
@@ -1362,7 +1403,8 @@ export default function LocalView({ state, setState }) {
             Solicitudes entrantes
           </h2>
 
-          {incoming.length === 0 ? (
+          {incoming.length ===
+          0 ? (
 
             <p className="muted">
               No hay solicitudes
