@@ -1,4 +1,9 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import {
   startOptimizedTracking,
@@ -40,109 +45,258 @@ import {
   updateLocalLocation,
 } from './localService';
 
+const LOCATION_HEARTBEAT_MS = 5000;
+
 export default function LocalView({ state, setState }) {
   const { user } = useAuth();
 
   const local = {
     id: user?.id,
+
     name:
       user?.user_metadata?.full_name ||
       user?.email ||
       'Local',
-    zones: state.locals[0]?.zones ?? [],
-    rating: state.locals[0]?.rating ?? 5,
-    location: state.locals[0]?.location ?? null,
+
+    zones:
+      state.locals[0]?.zones ?? [],
+
+    rating:
+      state.locals[0]?.rating ?? 5,
+
+    location:
+      state.locals[0]?.location ?? null,
   };
 
-  const [geoStatus, setGeoStatus] = useState('');
-  const [isOnline, setIsOnline] = useState(false);
-  const [onlineLoading, setOnlineLoading] = useState(true);
-const watchIdRef = useRef(null);
+  const [geoStatus, setGeoStatus] =
+    useState('');
+
+  const [isOnline, setIsOnline] =
+    useState(false);
+
+  const [
+    onlineLoading,
+    setOnlineLoading,
+  ] = useState(true);
+
+  // --------------------------------------------------
+  // REFERENCIAS GPS
+  // --------------------------------------------------
+
+  const watchIdRef = useRef(null);
+
+  // Última posición GPS válida conocida.
+  // El heartbeat seguirá enviando esta posición
+  // aunque watchPosition no genere una lectura nueva.
+  const lastTrackedLocationRef =
+    useRef(null);
+
+  const locationHeartbeatRef =
+    useRef(null);
+
+  // --------------------------------------------------
+  // TRACKING GPS OPTIMIZADO + HEARTBEAT
+  // --------------------------------------------------
+
+  useEffect(() => {
+    // -----------------------------------------------
+    // OFFLINE
+    // -----------------------------------------------
+
+    if (!isOnline || !user?.id) {
+      if (watchIdRef.current != null) {
+        stopOptimizedTracking(
+          watchIdRef.current
+        );
+
+        watchIdRef.current = null;
+      }
+
+      if (
+        locationHeartbeatRef.current != null
+      ) {
+        window.clearInterval(
+          locationHeartbeatRef.current
+        );
+
+        locationHeartbeatRef.current = null;
+      }
+
+      return;
+    }
+
+    // -----------------------------------------------
+    // ARRANCAR WATCHPOSITION
+    // -----------------------------------------------
+
+    if (watchIdRef.current == null) {
+      try {
+        watchIdRef.current =
+          startOptimizedTracking({
+            initialLocation:
+              lastTrackedLocationRef.current ||
+              local.location,
+
+            onLocation: async (
+              location,
+              quality
+            ) => {
+              // Guardar como última posición válida
+              lastTrackedLocationRef.current =
+                location;
+
+              // Actualizar estado React
+              setState(prev => ({
+                ...prev,
+
+                locals: prev.locals.map(
+                  (storedLocal, index) =>
+                    index === 0
+                      ? {
+                          ...storedLocal,
+                          location,
+                        }
+                      : storedLocal
+                ),
+              }));
+
+              setGeoStatus(
+                `Ubicación en directo · precisión ${location.accuracy} m · calidad ${quality.label}`
+              );
+
+              // Guardar posición en Supabase
+              try {
+                await updateLocalLocation(
+                  user.id,
+                  location
+                );
+              } catch (error) {
+                console.error(
+                  'Error guardando ubicación optimizada en Supabase:',
+                  error
+                );
+              }
+            },
+
+            onRejected: reason => {
+              setGeoStatus(reason);
+            },
+
+            onError: error => {
+              console.error(
+                'Error en tracking optimizado:',
+                error
+              );
+
+              setGeoStatus(
+                error?.message ||
+                  'No se pudo actualizar la ubicación'
+              );
+            },
+          });
+
+        console.log(
+          'Tracking GPS optimizado iniciado:',
+          watchIdRef.current
+        );
+      } catch (error) {
+        console.error(
+          'No se pudo iniciar tracking optimizado:',
+          error
+        );
+      }
+    }
+
+    // -----------------------------------------------
+    // HEARTBEAT
+    //
+    // watchPosition no garantiza una lectura cada X
+    // segundos. Si el móvil está quieto puede dejar
+    // de emitir.
+    //
+    // Cada 5 segundos reenviamos la última posición
+    // válida para mantener actualizado updated_at.
+    // -----------------------------------------------
+
+    if (
+      locationHeartbeatRef.current == null
+    ) {
+      locationHeartbeatRef.current =
+        window.setInterval(
+          async () => {
+            const location =
+              lastTrackedLocationRef.current;
+
+            if (
+              !location ||
+              !user?.id
+            ) {
+              return;
+            }
+
+            try {
+              await updateLocalLocation(
+                user.id,
+                location
+              );
+
+              console.log(
+                'Heartbeat GPS enviado:',
+                {
+                  lat:
+                    location.lat,
+                  lng:
+                    location.lng,
+                  accuracy:
+                    location.accuracy,
+                  at:
+                    new Date().toISOString(),
+                }
+              );
+            } catch (error) {
+              console.error(
+                'Error enviando heartbeat GPS:',
+                error
+              );
+            }
+          },
+          LOCATION_HEARTBEAT_MS
+        );
+    }
+
+    // -----------------------------------------------
+    // CLEANUP
+    // Solo al ponerse Offline, cambiar usuario
+    // o desmontar LocalView
+    // -----------------------------------------------
+
+    return () => {
+      if (
+        watchIdRef.current != null
+      ) {
+        stopOptimizedTracking(
+          watchIdRef.current
+        );
+
+        watchIdRef.current = null;
+      }
+
+      if (
+        locationHeartbeatRef.current != null
+      ) {
+        window.clearInterval(
+          locationHeartbeatRef.current
+        );
+
+        locationHeartbeatRef.current = null;
+      }
+    };
+  }, [isOnline, user?.id]);
+
   // --------------------------------------------------
   // CARGAR ESTADO ONLINE/OFFLINE
   // --------------------------------------------------
-useEffect(() => {
-  if (!isOnline || !user?.id) {
-    if (watchIdRef.current != null) {
-      stopOptimizedTracking(watchIdRef.current);
-      watchIdRef.current = null;
-    }
 
-    return;
-  }
-
-  if (watchIdRef.current != null) {
-    return;
-  }
-
-  try {
-    watchIdRef.current = startOptimizedTracking({
-      initialLocation: local.location,
-
-      onLocation: async (location, quality) => {
-        setState(prev => ({
-          ...prev,
-          locals: prev.locals.map(
-            (storedLocal, index) =>
-              index === 0
-                ? {
-                    ...storedLocal,
-                    location,
-                  }
-                : storedLocal
-          ),
-        }));
-
-        setGeoStatus(
-          `Ubicación en directo · precisión ${location.accuracy} m · calidad ${quality.label}`
-        );
-
-        try {
-          await updateLocalLocation(
-            user.id,
-            location
-          );
-        } catch (error) {
-          console.error(
-            'Error guardando ubicación optimizada en Supabase:',
-            error
-          );
-        }
-      },
-
-      onRejected: reason => {
-        setGeoStatus(reason);
-      },
-
-      onError: error => {
-        console.error(
-          'Error en tracking optimizado:',
-          error
-        );
-
-        setGeoStatus(
-          error?.message ||
-            'No se pudo actualizar la ubicación'
-        );
-      },
-    });
-  } catch (error) {
-    console.error(
-      'No se pudo iniciar tracking optimizado:',
-      error
-    );
-  }
-
-  return () => {
-    if (watchIdRef.current != null) {
-      stopOptimizedTracking(
-        watchIdRef.current
-      );
-
-      watchIdRef.current = null;
-    }
-  };
-}, [isOnline, user?.id]);
   useEffect(() => {
     async function loadLocalStatus() {
       if (!user?.id) {
@@ -151,10 +305,15 @@ useEffect(() => {
       }
 
       try {
-        const data = await getLocalStatus(user.id);
+        const data =
+          await getLocalStatus(
+            user.id
+          );
 
         setIsOnline(
-          Boolean(data?.is_online)
+          Boolean(
+            data?.is_online
+          )
         );
 
         if (
@@ -165,26 +324,40 @@ useEffect(() => {
             lat: data.latitude,
             lng: data.longitude,
             accuracy:
-              data.accuracy ?? null,
+              data.accuracy ??
+              null,
           };
+
+          // Muy importante:
+          // el heartbeat ya conoce la última
+          // posición incluso antes de recibir
+          // una nueva lectura GPS.
+          lastTrackedLocationRef.current =
+            location;
 
           setState(prev => ({
             ...prev,
-            locals: prev.locals.map(
-              (storedLocal, index) =>
-                index === 0
-                  ? {
-                      ...storedLocal,
-                      location,
-                    }
-                  : storedLocal
-            ),
+
+            locals:
+              prev.locals.map(
+                (
+                  storedLocal,
+                  index
+                ) =>
+                  index === 0
+                    ? {
+                        ...storedLocal,
+                        location,
+                      }
+                    : storedLocal
+              ),
           }));
 
           setGeoStatus(
             data.is_online
               ? `Ubicación activa${
-                  data.accuracy != null
+                  data.accuracy !=
+                  null
                     ? ` · precisión ${Math.round(
                         data.accuracy
                       )} m`
@@ -220,22 +393,28 @@ useEffect(() => {
           rows.map(row => {
             const zoneData =
               zones.find(
-                z =>
-                  z.id ===
+                zone =>
+                  zone.id ===
                   row.zone
               );
 
             return {
-              id: row.id,
+              id:
+                row.id,
+
               clientId:
                 row.client_id,
+
               localId:
                 row.local_id,
 
-              zoneId: row.zone,
+              zoneId:
+                row.zone,
+
               zoneName:
                 zoneData?.name ??
                 row.zone,
+
               zoneCenter:
                 zoneData?.center ??
                 null,
@@ -254,20 +433,28 @@ useEffect(() => {
 
               notes:
                 row.description,
-              status: row.status,
+
+              status:
+                row.status,
+
               createdAt:
                 row.created_at,
 
-              candidateLocalIds: [],
+              candidateLocalIds:
+                [],
+
               bestEta:
                 zoneData?.eta ??
                 null,
-              bestDistanceKm: null,
+
+              bestDistanceKm:
+                null,
             };
           });
 
         setState(prev => ({
           ...prev,
+
           requests:
             mappedRequests,
         }));
@@ -287,7 +474,9 @@ useEffect(() => {
   // --------------------------------------------------
 
   useEffect(() => {
-    if (!supabase) return;
+    if (!supabase) {
+      return;
+    }
 
     const channel =
       supabase
@@ -298,9 +487,12 @@ useEffect(() => {
           'postgres_changes',
           {
             event: '*',
-            schema: 'public',
-            table: 'requests',
+            schema:
+              'public',
+            table:
+              'requests',
           },
+
           payload => {
             console.log(
               'Cambio realtime en requests:',
@@ -310,26 +502,34 @@ useEffect(() => {
             const row =
               payload.new;
 
-            if (!row?.id) return;
+            if (!row?.id) {
+              return;
+            }
 
             const zoneData =
               zones.find(
-                z =>
-                  z.id ===
+                zone =>
+                  zone.id ===
                   row.zone
               );
 
             const mappedRequest = {
-              id: row.id,
+              id:
+                row.id,
+
               clientId:
                 row.client_id,
+
               localId:
                 row.local_id,
 
-              zoneId: row.zone,
+              zoneId:
+                row.zone,
+
               zoneName:
                 zoneData?.name ??
                 row.zone,
+
               zoneCenter:
                 zoneData?.center ??
                 null,
@@ -348,15 +548,22 @@ useEffect(() => {
 
               notes:
                 row.description,
-              status: row.status,
+
+              status:
+                row.status,
+
               createdAt:
                 row.created_at,
 
-              candidateLocalIds: [],
+              candidateLocalIds:
+                [],
+
               bestEta:
                 zoneData?.eta ??
                 null,
-              bestDistanceKm: null,
+
+              bestDistanceKm:
+                null,
             };
 
             setState(prev => {
@@ -370,6 +577,7 @@ useEffect(() => {
               if (exists) {
                 return {
                   ...prev,
+
                   requests:
                     prev.requests.map(
                       request =>
@@ -386,6 +594,7 @@ useEffect(() => {
 
               return {
                 ...prev,
+
                 requests: [
                   ...prev.requests,
                   mappedRequest,
@@ -414,8 +623,8 @@ useEffect(() => {
           const zoneCenter =
             request.zoneCenter ||
             zones.find(
-              z =>
-                z.id ===
+              zone =>
+                zone.id ===
                 request.zoneId
             )?.center;
 
@@ -427,7 +636,10 @@ useEffect(() => {
 
           return {
             ...request,
-            distanceKm: km,
+
+            distanceKm:
+              km,
+
             etaMinutes:
               estimateEtaMinutes(
                 km
@@ -440,17 +652,23 @@ useEffect(() => {
       local.location,
     ]);
 
-  // Solo pendientes, de otros usuarios,
-  // y solo si el Local está ONLINE
+  // --------------------------------------------------
+  // SOLICITUDES ENTRANTES
+  // --------------------------------------------------
+
   const incoming =
     enrichedRequests.filter(
       request =>
         isOnline &&
+
         request.status ===
           'pending' &&
+
         request.clientId &&
+
         request.clientId !==
           user?.id &&
+
         (
           local.zones.includes(
             request.zoneId
@@ -460,14 +678,19 @@ useEffect(() => {
         )
     );
 
-  // Servicio ya aceptado por este Local
+  // --------------------------------------------------
+  // SERVICIO ASIGNADO AL LOCAL
+  // --------------------------------------------------
+
   const mine =
     enrichedRequests.find(
       request =>
         request.localId ===
           local.id &&
+
         request.status !==
           'completed' &&
+
         request.status !==
           'cancelled'
     );
@@ -477,13 +700,20 @@ useEffect(() => {
   // --------------------------------------------------
 
   async function handleGoOnline() {
-    if (!user?.id) return;
+    if (!user?.id) {
+      return;
+    }
 
     try {
       setOnlineLoading(true);
 
       const location =
         await getBrowserLocation();
+
+      // Guardamos inmediatamente esta primera
+      // posición para que el heartbeat pueda usarla.
+      lastTrackedLocationRef.current =
+        location;
 
       await goOnline(
         user.id,
@@ -492,15 +722,20 @@ useEffect(() => {
 
       setState(prev => ({
         ...prev,
-        locals: prev.locals.map(
-          (storedLocal, index) =>
-            index === 0
-              ? {
-                  ...storedLocal,
-                  location,
-                }
-              : storedLocal
-        ),
+
+        locals:
+          prev.locals.map(
+            (
+              storedLocal,
+              index
+            ) =>
+              index === 0
+                ? {
+                    ...storedLocal,
+                    location,
+                  }
+                : storedLocal
+          ),
       }));
 
       setGeoStatus(
@@ -529,15 +764,23 @@ useEffect(() => {
   // --------------------------------------------------
 
   async function handleGoOffline() {
-    if (!user?.id) return;
+    if (!user?.id) {
+      return;
+    }
 
     try {
       setOnlineLoading(true);
 
-      await goOffline(user.id);
+      await goOffline(
+        user.id
+      );
 
       setIsOnline(false);
+
       setGeoStatus('');
+
+      lastTrackedLocationRef.current =
+        null;
     } catch (error) {
       console.error(
         'Error poniendo Local offline:',
@@ -557,7 +800,9 @@ useEffect(() => {
   // pending -> matched
   // --------------------------------------------------
 
-  async function accept(request) {
+  async function accept(
+    request
+  ) {
     try {
       await acceptRequest(
         request.id,
@@ -566,6 +811,7 @@ useEffect(() => {
 
       setState(prev => ({
         ...prev,
+
         requests:
           prev.requests.map(
             current =>
@@ -573,10 +819,13 @@ useEffect(() => {
               request.id
                 ? {
                     ...current,
+
                     status:
                       'matched',
+
                     localId:
                       local.id,
+
                     acceptedAt:
                       new Date().toLocaleString(),
                   }
@@ -610,6 +859,7 @@ useEffect(() => {
 
       setState(prev => ({
         ...prev,
+
         requests:
           prev.requests.map(
             current =>
@@ -617,6 +867,7 @@ useEffect(() => {
               request.id
                 ? {
                     ...current,
+
                     status:
                       'on_the_way',
                   }
@@ -650,6 +901,7 @@ useEffect(() => {
 
       setState(prev => ({
         ...prev,
+
         requests:
           prev.requests.map(
             current =>
@@ -657,6 +909,7 @@ useEffect(() => {
               request.id
                 ? {
                     ...current,
+
                     status:
                       'arrived',
                   }
@@ -687,7 +940,9 @@ useEffect(() => {
         '¿Quieres cancelar este servicio?'
       );
 
-    if (!confirmed) return;
+    if (!confirmed) {
+      return;
+    }
 
     try {
       await updateRequestStatus(
@@ -697,6 +952,7 @@ useEffect(() => {
 
       setState(prev => ({
         ...prev,
+
         requests:
           prev.requests.map(
             current =>
@@ -704,6 +960,7 @@ useEffect(() => {
               request.id
                 ? {
                     ...current,
+
                     status:
                       'cancelled',
                   }
@@ -737,6 +994,7 @@ useEffect(() => {
 
       setState(prev => ({
         ...prev,
+
         requests:
           prev.requests.map(
             current =>
@@ -744,6 +1002,7 @@ useEffect(() => {
               request.id
                 ? {
                     ...current,
+
                     status:
                       'in_progress',
                   }
@@ -775,21 +1034,29 @@ useEffect(() => {
       const location =
         await getBrowserLocation();
 
+      lastTrackedLocationRef.current =
+        location;
+
       setState(prev => ({
         ...prev,
-        locals: prev.locals.map(
-          (storedLocal, index) =>
-            index === 0
-              ? {
-                  ...storedLocal,
-                  location,
-                }
-              : storedLocal
-        ),
+
+        locals:
+          prev.locals.map(
+            (
+              storedLocal,
+              index
+            ) =>
+              index === 0
+                ? {
+                    ...storedLocal,
+                    location,
+                  }
+                : storedLocal
+          ),
       }));
 
       if (isOnline) {
-        await goOnline(
+        await updateLocalLocation(
           user.id,
           location
         );
@@ -815,7 +1082,9 @@ useEffect(() => {
   if (mine) {
     return (
       <div className="stack">
+
         <section className="hero compact">
+
           <p className="eyebrow">
             Local
           </p>
@@ -835,6 +1104,38 @@ useEffect(() => {
             )}
           </p>
 
+          {/* GPS sigue activo en cualquier estado */}
+
+          {isOnline &&
+            local.location && (
+              <small>
+                GPS compartido · Lat{' '}
+                {local.location.lat.toFixed(
+                  6
+                )}
+                {' · '}
+                Lng{' '}
+                {local.location.lng.toFixed(
+                  6
+                )}
+                {' · '}
+                precisión{' '}
+                {Math.round(
+                  local.location
+                    .accuracy ?? 0
+                )}{' '}
+                m
+              </small>
+            )}
+
+          {geoStatus && (
+            <small>
+              {geoStatus}
+            </small>
+          )}
+
+          {/* MATCHED */}
+
           {mine.status ===
             'matched' && (
             <button
@@ -843,13 +1144,17 @@ useEffect(() => {
               }
             >
               <Play size={16} />
+
               Iniciar desplazamiento
             </button>
           )}
 
+          {/* ON THE WAY */}
+
           {mine.status ===
             'on_the_way' && (
             <div className="stack">
+
               <p className="statusLine">
                 Te estás desplazando
                 hacia el punto
@@ -858,35 +1163,54 @@ useEffect(() => {
 
               <button
                 onClick={() =>
-                  markArrived(mine)
+                  markArrived(
+                    mine
+                  )
                 }
               >
                 <LocateFixed
                   size={16}
                 />
+
                 He llegado
               </button>
+
             </div>
           )}
+
+          {/* ARRIVED */}
 
           {mine.status ===
             'arrived' && (
             <div className="stack">
+
               <p className="statusLine">
                 Has llegado al punto
                 solicitado.
               </p>
 
+              <p className="hint">
+                Tu ubicación continúa
+                compartiéndose mientras
+                estés Online.
+              </p>
+
               <button
                 onClick={() =>
-                  startSession(mine)
+                  startSession(
+                    mine
+                  )
                 }
               >
                 <Video size={16} />
+
                 Entrar en sesión
               </button>
+
             </div>
           )}
+
+          {/* CANCELACIÓN */}
 
           {[
             'matched',
@@ -905,7 +1229,10 @@ useEffect(() => {
               Cancelar servicio
             </button>
           )}
+
         </section>
+
+        {/* SESIÓN */}
 
         {mine.status ===
           'in_progress' && (
@@ -916,6 +1243,7 @@ useEffect(() => {
             role="Local"
           />
         )}
+
       </div>
     );
   }
@@ -926,26 +1254,35 @@ useEffect(() => {
 
   return (
     <div className="stack">
+
       <section className="hero compact">
+
         <p className="eyebrow">
           Local
         </p>
 
-        <h1>{local.name}</h1>
+        <h1>
+          {local.name}
+        </h1>
 
         <p>
           Zonas:{' '}
-          {local.zones.join(', ')} ·
-          ⭐ {local.rating}
+          {local.zones.join(
+            ', '
+          )}{' '}
+          · ⭐ {local.rating}
         </p>
 
         {onlineLoading ? (
+
           <p className="muted">
-            Comprobando
-            disponibilidad...
+            Comprobando disponibilidad...
           </p>
+
         ) : isOnline ? (
+
           <div className="stack">
+
             <p className="statusLine">
               🟢 Estás ONLINE
             </p>
@@ -967,6 +1304,7 @@ useEffect(() => {
               <LocateFixed
                 size={16}
               />
+
               Actualizar ubicación
             </button>
 
@@ -980,17 +1318,22 @@ useEffect(() => {
               <small>
                 Lat{' '}
                 {local.location.lat.toFixed(
-                  4
+                  6
                 )}
-                , Lng{' '}
+                {' · '}
+                Lng{' '}
                 {local.location.lng.toFixed(
-                  4
+                  6
                 )}
               </small>
             )}
+
           </div>
+
         ) : (
+
           <div className="stack">
+
             <p className="statusLine">
               ⚪ Estás OFFLINE
             </p>
@@ -1004,47 +1347,50 @@ useEffect(() => {
               <LocateFixed
                 size={16}
               />
-              Conectarme como
-              Local
+
+              Conectarme como Local
             </button>
+
           </div>
         )}
+
       </section>
 
       {isOnline ? (
+
         <section className="card">
+
           <h2>
             Solicitudes entrantes
           </h2>
 
           {incoming.length === 0 ? (
+
             <p className="muted">
               No hay solicitudes
               compatibles ahora.
             </p>
+
           ) : (
+
             incoming.map(
               request => (
+
                 <div
                   className="requestCard"
                   key={request.id}
                 >
+
                   <div>
+
                     <b>
-                      {
-                        request.zoneName
-                      }
+                      {request.zoneName}
                     </b>
 
                     <span>
-                      {
-                        request.duration
-                      }{' '}
+                      {request.duration}{' '}
                       min ·{' '}
-                      {
-                        request.price
-                      }{' '}
-                      € ·{' '}
+                      {request.price} € ·{' '}
                       {formatDistance(
                         request.distanceKm
                       )}{' '}
@@ -1057,6 +1403,7 @@ useEffect(() => {
                     <small>
                       {request.notes}
                     </small>
+
                   </div>
 
                   <button
@@ -1069,21 +1416,29 @@ useEffect(() => {
                     <UserCheck
                       size={16}
                     />
+
                     Aceptar
                   </button>
+
                 </div>
               )
             )
           )}
+
         </section>
+
       ) : (
+
         <section className="card">
+
           <p className="muted">
             Conéctate como Local
             para recibir solicitudes.
           </p>
+
         </section>
       )}
+
     </div>
   );
 }
