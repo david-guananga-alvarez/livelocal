@@ -1,4 +1,5 @@
 import React from 'react';
+import ChatPanel from '../chat/ChatPanel';
 import WebRTCRoom from '../video/WebRTCRoom';
 
 export default function SessionWorkspace({
@@ -17,6 +18,13 @@ export default function SessionWorkspace({
           role={role}
         />
       </div>
+
+      <ChatPanel
+        requestId={request.id}
+        state={state}
+        setState={setState}
+        sender={role}
+      />
     </div>
   );
 }
