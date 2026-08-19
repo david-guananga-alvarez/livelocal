@@ -67,3 +67,24 @@ export async function getLocalStatus(userId) {
 
   return data;
 }
+export async function updateLocalLocation(userId, location) {
+  if (!supabase) {
+    throw new Error('Supabase no está configurado');
+  }
+
+  const { data, error } = await supabase
+    .from('locals')
+    .update({
+      latitude: location.lat,
+      longitude: location.lng,
+      accuracy: location.accuracy ?? null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('user_id', userId)
+    .select()
+    .single();
+
+  if (error) throw error;
+
+  return data;
+}

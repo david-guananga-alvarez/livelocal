@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+
 import {
   UserCheck,
   Play,
@@ -31,6 +32,7 @@ import {
   goOnline,
   goOffline,
   getLocalStatus,
+  updateLocalLocation,
 } from './localService';
 
 export default function LocalView({ state, setState }) {
@@ -50,11 +52,93 @@ export default function LocalView({ state, setState }) {
   const [geoStatus, setGeoStatus] = useState('');
   const [isOnline, setIsOnline] = useState(false);
   const [onlineLoading, setOnlineLoading] = useState(true);
-
+const watchIdRef = useRef(null);
   // --------------------------------------------------
   // CARGAR ESTADO ONLINE/OFFLINE
   // --------------------------------------------------
+useEffect(() => {
+  if (!isOnline || !user?.id) {
+    if (watchIdRef.current !== null) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+      watchIdRef.current = null;
+    }
 
+    return;
+  }
+
+  if (!navigator.geolocation) {
+    console.error('Geolocalización no soportada');
+    return;
+  }
+
+  watchIdRef.current = navigator.geolocation.watchPosition(
+    async position => {
+      const location = {
+        lat: position.coords.latitude,
+        lng: position.coords.longitude,
+        accuracy: position.coords.accuracy,
+      };
+
+      // Actualizamos estado local
+      setState(prev => ({
+        ...prev,
+        locals: prev.locals.map((storedLocal, index) =>
+          index === 0
+            ? {
+                ...storedLocal,
+                location,
+              }
+            : storedLocal
+        ),
+      }));
+
+      setGeoStatus(
+        `Ubicación en directo · precisión ${Math.round(
+          location.accuracy
+        )} m`
+      );
+
+      // Persistimos en Supabase
+      try {
+        await updateLocalLocation(
+          user.id,
+          location
+        );
+      } catch (error) {
+        console.error(
+          'Error actualizando ubicación en Supabase:',
+          error
+        );
+      }
+    },
+    error => {
+      console.error(
+        'Error watchPosition:',
+        error
+      );
+
+      setGeoStatus(
+        error?.message ||
+          'No se pudo actualizar la ubicación'
+      );
+    },
+    {
+      enableHighAccuracy: true,
+      maximumAge: 3000,
+      timeout: 10000,
+    }
+  );
+
+  return () => {
+    if (watchIdRef.current !== null) {
+      navigator.geolocation.clearWatch(
+        watchIdRef.current
+      );
+
+      watchIdRef.current = null;
+    }
+  };
+}, [isOnline, user?.id]);
   useEffect(() => {
     async function loadLocalStatus() {
       if (!user?.id) {
