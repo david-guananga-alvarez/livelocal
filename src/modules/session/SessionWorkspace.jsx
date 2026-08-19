@@ -21,8 +21,6 @@ export default function SessionWorkspace({
 
       <ChatPanel
         requestId={request.id}
-        state={state}
-        setState={setState}
         sender={role}
       />
     </div>
