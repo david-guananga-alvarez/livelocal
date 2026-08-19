@@ -73,14 +73,11 @@ export default function ClientView({
           schema: 'public',
           table: 'requests',
         },
-
         payload => {
-          const row =
-            payload.new;
+          const row = payload.new;
 
           if (
-            row.client_id !==
-            user.id
+            row.client_id !== user.id
           ) {
             return;
           }
@@ -96,8 +93,7 @@ export default function ClientView({
             requests:
               prev.requests.map(
                 request =>
-                  request.id ===
-                  row.id
+                  request.id === row.id
                     ? {
                         ...request,
 
@@ -146,10 +142,8 @@ export default function ClientView({
           schema: 'public',
           table: 'locals',
         },
-
         payload => {
-          const row =
-            payload.new;
+          const row = payload.new;
 
           if (!row?.user_id) {
             return;
@@ -505,8 +499,48 @@ export default function ClientView({
                       request.localId
                   );
 
+                // --------------------------------------------------
+                // DESTINO DEL TRACKING
+                //
+                // Si zoneCenter no existe porque la petición
+                // se reconstruyó desde Supabase, recuperamos
+                // el centro usando zoneId.
+                // --------------------------------------------------
+
+                const zoneData =
+                  zones.find(
+                    item =>
+                      item.id ===
+                      request.zoneId
+                  );
+
+                const trackingTarget =
+                  request.zoneCenter ??
+                  zoneData?.center ??
+                  null;
+
+                // --------------------------------------------------
+                // VALIDAR POSICIÓN DEL LOCAL
+                // --------------------------------------------------
+
+                const hasValidLocalLocation =
+                  Number.isFinite(
+                    Number(
+                      request
+                        .liveLocalLocation
+                        ?.lat
+                    )
+                  ) &&
+                  Number.isFinite(
+                    Number(
+                      request
+                        .liveLocalLocation
+                        ?.lng
+                    )
+                  );
+
                 const showLiveTracking =
-                  request.liveLocalLocation &&
+                  hasValidLocalLocation &&
                   [
                     'matched',
                     'on_the_way',
@@ -703,18 +737,20 @@ export default function ClientView({
                     -------------------------------------------------- */}
 
                     {showLiveTracking &&
-                      request.zoneCenter && (
+                      trackingTarget && (
 
                       <div
                         style={{
                           marginTop:
                             '12px',
+                          width:
+                            '100%',
                         }}
                       >
 
                         <LiveTrackingMap
                           target={
-                            request.zoneCenter
+                            trackingTarget
                           }
 
                           localLocation={
