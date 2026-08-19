@@ -1,11 +1,10 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 
 import {
   MapContainer,
   TileLayer,
   Marker,
   Popup,
-  useMap,
 } from 'react-leaflet';
 
 import L from 'leaflet';
@@ -13,107 +12,64 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
 // --------------------------------------------------
-// ICONOS LEAFLET
+// ICONO DEL LOCAL
 // --------------------------------------------------
 
-delete L.Icon.Default.prototype._getIconUrl;
-
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl:
-    'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-
+const localIcon = new L.Icon({
   iconUrl:
     'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
 
+  iconRetinaUrl:
+    'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+
   shadowUrl:
     'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41],
 });
 
-// --------------------------------------------------
-// AJUSTAR MAPA CUANDO CAMBIAN LAS POSICIONES
-// --------------------------------------------------
-
-function MapUpdater({
-  target,
-  localLocation,
-}) {
-  const map = useMap();
-
-  useEffect(() => {
-    if (
-      !target ||
-      !localLocation
-    ) {
-      return;
-    }
-
-    const bounds =
-      L.latLngBounds([
-        [
-          target.lat,
-          target.lng,
-        ],
-        [
-          localLocation.lat,
-          localLocation.lng,
-        ],
-      ]);
-
-    map.fitBounds(
-      bounds,
-      {
-        padding: [50, 50],
-        maxZoom: 17,
-      }
-    );
-  }, [
-    target?.lat,
-    target?.lng,
-    localLocation?.lat,
-    localLocation?.lng,
-  ]);
-
-  return null;
-}
-
 export default function LiveTrackingMap({
-  target,
   localLocation,
 }) {
-  if (!target) {
+  if (
+    !localLocation ||
+    !Number.isFinite(
+      Number(localLocation.lat)
+    ) ||
+    !Number.isFinite(
+      Number(localLocation.lng)
+    )
+  ) {
     return (
       <div className="emptyLocation">
-        No hay destino disponible.
+        Esperando ubicación del Local...
       </div>
     );
   }
 
-  const center =
-    localLocation
-      ? [
-          localLocation.lat,
-          localLocation.lng,
-        ]
-      : [
-          target.lat,
-          target.lng,
-        ];
+  const position = [
+    Number(localLocation.lat),
+    Number(localLocation.lng),
+  ];
 
   return (
     <div
       style={{
-        height: '320px',
         width: '100%',
-        borderRadius: '16px',
-        overflow: 'hidden',
+        height: '100%',
       }}
     >
       <MapContainer
-        center={center}
-        zoom={16}
+        center={position}
+        zoom={17}
+        scrollWheelZoom
         style={{
-          height: '100%',
           width: '100%',
+          height: '100%',
+          minHeight: '440px',
         }}
       >
         <TileLayer
@@ -121,40 +77,14 @@ export default function LiveTrackingMap({
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
 
-        {/* DESTINO */}
-
         <Marker
-          position={[
-            target.lat,
-            target.lng,
-          ]}
+          position={position}
+          icon={localIcon}
         >
           <Popup>
-            Punto solicitado
+            Local en directo
           </Popup>
         </Marker>
-
-        {/* LOCAL */}
-
-        {localLocation && (
-          <Marker
-            position={[
-              localLocation.lat,
-              localLocation.lng,
-            ]}
-          >
-            <Popup>
-              Local en directo
-            </Popup>
-          </Marker>
-        )}
-
-        <MapUpdater
-          target={target}
-          localLocation={
-            localLocation
-          }
-        />
       </MapContainer>
     </div>
   );

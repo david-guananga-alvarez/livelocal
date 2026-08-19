@@ -90,10 +90,13 @@ export default function ClientView({
                   request.id === row.id
                     ? {
                         ...request,
+
                         status:
                           row.status,
+
                         localId:
                           row.local_id,
+
                         createdAt:
                           row.created_at ??
                           request.createdAt,
@@ -158,10 +161,13 @@ export default function ClientView({
                     liveLocalLocation: {
                       lat:
                         row.latitude,
+
                       lng:
                         row.longitude,
+
                       accuracy:
                         row.accuracy,
+
                       updatedAt:
                         row.updated_at,
                     },
@@ -241,6 +247,7 @@ export default function ClientView({
       alert(
         'Debes iniciar sesión para crear una petición'
       );
+
       return;
     }
 
@@ -248,6 +255,7 @@ export default function ClientView({
       alert(
         'No se pudo determinar la zona seleccionada'
       );
+
       return;
     }
 
@@ -460,17 +468,9 @@ export default function ClientView({
                       request.localId
                   );
 
-                const zoneData =
-                  zones.find(
-                    item =>
-                      item.id ===
-                      request.zoneId
-                  );
-
-                const trackingTarget =
-                  request.zoneCenter ??
-                  zoneData?.center ??
-                  null;
+                // --------------------------------------------------
+                // VALIDAR POSICIÓN DEL LOCAL
+                // --------------------------------------------------
 
                 const hasValidLocalLocation =
                   Number.isFinite(
@@ -508,7 +508,9 @@ export default function ClientView({
                     {/* HEADER */}
 
                     <div className="activeRequestHeader">
+
                       <div>
+
                         <b>
                           {request.zoneName}
                         </b>
@@ -523,7 +525,9 @@ export default function ClientView({
                             request.status
                           )}
                         </small>
+
                       </div>
+
                     </div>
 
                     {/* BODY */}
@@ -534,22 +538,33 @@ export default function ClientView({
 
                       <div className="activeRequestInfo">
 
+                        {/* PENDING */}
+
                         {request.status ===
                           'pending' && (
+
                           <div className="searching">
+
                             <span />
+
                             Buscando local cercano...
+
                           </div>
                         )}
 
+                        {/* MATCHED */}
+
                         {request.status ===
                           'matched' && (
+
                           <div className="matched">
+
                             <CheckCircle
                               size={18}
                             />
 
                             <div>
+
                               <b>
                                 Local encontrado
                               </b>
@@ -564,18 +579,25 @@ export default function ClientView({
                                 inicie el
                                 desplazamiento.
                               </small>
+
                             </div>
+
                           </div>
                         )}
 
+                        {/* ON THE WAY */}
+
                         {request.status ===
                           'on_the_way' && (
+
                           <div className="matched">
+
                             <Navigation
                               size={18}
                             />
 
                             <div>
+
                               <b>
                                 Tu Local está de camino
                               </b>
@@ -584,11 +606,16 @@ export default function ClientView({
                                 Se está desplazando hacia
                                 el punto solicitado.
                               </p>
+
                             </div>
+
                           </div>
                         )}
 
+                        {/* GPS INFO */}
+
                         {showLiveTracking && (
+
                           <div className="locationBox liveLocationMeta">
 
                             <b>
@@ -605,7 +632,9 @@ export default function ClientView({
                                 request
                                   .liveLocalLocation
                                   .lat
-                              ).toFixed(6)}
+                              ).toFixed(
+                                6
+                              )}
                             </span>
 
                             <span>
@@ -614,7 +643,9 @@ export default function ClientView({
                                 request
                                   .liveLocalLocation
                                   .lng
-                              ).toFixed(6)}
+                              ).toFixed(
+                                6
+                              )}
                             </span>
 
                             <small>
@@ -631,6 +662,7 @@ export default function ClientView({
                             {request
                               .liveLocalLocation
                               .updatedAt && (
+
                               <small>
                                 Actualizado{' '}
                                 {new Date(
@@ -640,17 +672,23 @@ export default function ClientView({
                                 ).toLocaleTimeString()}
                               </small>
                             )}
+
                           </div>
                         )}
 
+                        {/* ARRIVED */}
+
                         {request.status ===
                           'arrived' && (
+
                           <div className="matched">
+
                             <CheckCircle
                               size={18}
                             />
 
                             <div>
+
                               <b>
                                 Tu Local ha llegado
                               </b>
@@ -663,9 +701,13 @@ export default function ClientView({
                                 El Local puede iniciar ahora
                                 la sesión.
                               </small>
+
                             </div>
+
                           </div>
                         )}
+
+                        {/* ACTIONS */}
 
                         <div className="requestActions">
 
@@ -676,6 +718,7 @@ export default function ClientView({
                           ].includes(
                             request.status
                           ) && (
+
                             <button
                               className="danger"
                               onClick={() =>
@@ -694,14 +737,11 @@ export default function ClientView({
 
                       {/* RIGHT COLUMN - MAP */}
 
-                      {showLiveTracking &&
-                        trackingTarget && (
+                      {showLiveTracking && (
+
                         <div className="activeRequestMap">
 
                           <LiveTrackingMap
-                            target={
-                              trackingTarget
-                            }
                             localLocation={
                               request.liveLocalLocation
                             }
@@ -716,6 +756,7 @@ export default function ClientView({
 
                     {request.status ===
                       'in_progress' && (
+
                       <div className="activeRequestSession">
 
                         <SessionWorkspace
@@ -732,6 +773,7 @@ export default function ClientView({
                         />
 
                         <div className="requestActions">
+
                           <button
                             className="success"
                             onClick={() =>
@@ -742,6 +784,7 @@ export default function ClientView({
                           >
                             Finalizar servicio
                           </button>
+
                         </div>
 
                       </div>
@@ -772,11 +815,13 @@ export default function ClientView({
         />
 
         <div className="coverageBox">
+
           <MapPin
             size={18}
           />
 
           <div>
+
             <b>
               {selectedZone.name}
             </b>
@@ -790,6 +835,7 @@ export default function ClientView({
             </span>
 
             {matches[0] && (
+
               <small>
                 Más cercano:{' '}
                 {matches[0].name},{' '}
@@ -799,12 +845,15 @@ export default function ClientView({
                 )}
               </small>
             )}
+
           </div>
+
         </div>
 
         <div className="formRow">
 
           <label>
+
             Duración
 
             <select
@@ -816,6 +865,7 @@ export default function ClientView({
                   )
               }
             >
+
               <option value="15">
                 15 min · 15 €
               </option>
@@ -827,10 +877,13 @@ export default function ClientView({
               <option value="45">
                 45 min · 35 €
               </option>
+
             </select>
+
           </label>
 
           <label>
+
             Instrucciones
 
             <textarea
@@ -842,6 +895,7 @@ export default function ClientView({
                   )
               }
             />
+
           </label>
 
         </div>
@@ -850,11 +904,13 @@ export default function ClientView({
           className="primary big"
           onClick={requestNow}
         >
+
           <Search
             size={18}
           />
 
           Pedir local ahora
+
         </button>
 
       </section>
