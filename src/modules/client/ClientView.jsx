@@ -3,6 +3,7 @@ import {
   Search,
   CheckCircle,
   MapPin,
+  Navigation,
 } from 'lucide-react';
 
 import { zones, prices } from '../../data/seed';
@@ -37,7 +38,7 @@ export default function ClientView({ state, setState }) {
   );
 
   // --------------------------------------------------
-  // REALTIME DE LAS PETICIONES DEL CLIENTE
+  // REALTIME DE ESTADOS DE LAS PETICIONES DEL CLIENTE
   // --------------------------------------------------
 
   useEffect(() => {
@@ -55,7 +56,8 @@ export default function ClientView({ state, setState }) {
         payload => {
           const row = payload.new;
 
-          // Solo cambios de este cliente
+          // Solo cambios correspondientes
+          // a este cliente
           if (row.client_id !== user.id) {
             return;
           }
@@ -67,6 +69,7 @@ export default function ClientView({ state, setState }) {
 
           setState(prev => ({
             ...prev,
+
             requests: prev.requests.map(request =>
               request.id === row.id
                 ? {
@@ -87,7 +90,68 @@ export default function ClientView({ state, setState }) {
   }, [user?.id]);
 
   // --------------------------------------------------
-  // PETICIONES ACTIVAS DEL USUARIO
+  // REALTIME DE LA POSICIÓN DEL LOCAL
+  // --------------------------------------------------
+
+  useEffect(() => {
+    if (!supabase || !user?.id) return;
+
+    const channel = supabase
+      .channel(`client-local-position-${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'locals',
+        },
+        payload => {
+          const row = payload.new;
+
+          if (!row?.user_id) {
+            return;
+          }
+
+          console.log(
+            'Posición del Local recibida:',
+            row
+          );
+
+          setState(prev => ({
+            ...prev,
+
+            requests: prev.requests.map(request => {
+              // Esta posición solo pertenece a las
+              // peticiones asignadas a este Local
+              if (
+                request.localId !== row.user_id
+              ) {
+                return request;
+              }
+
+              return {
+                ...request,
+
+                liveLocalLocation: {
+                  lat: row.latitude,
+                  lng: row.longitude,
+                  accuracy: row.accuracy,
+                  updatedAt: row.updated_at,
+                },
+              };
+            }),
+          }));
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id]);
+
+  // --------------------------------------------------
+  // PETICIONES ACTIVAS DEL CLIENTE
   // --------------------------------------------------
 
   const activeRequests = state.requests
@@ -100,7 +164,7 @@ export default function ClientView({ state, setState }) {
     .reverse();
 
   const selectedZone = zones.find(
-    z => z.id === zone
+    item => item.id === zone
   );
 
   const matches = useMemo(
@@ -122,6 +186,7 @@ export default function ClientView({ state, setState }) {
 
     const request = {
       id: crypto.randomUUID(),
+
       clientId: user.id,
 
       zoneId: zone,
@@ -155,6 +220,7 @@ export default function ClientView({ state, setState }) {
 
       setState(prev => ({
         ...prev,
+
         requests: [
           ...prev.requests,
           request,
@@ -192,6 +258,7 @@ export default function ClientView({ state, setState }) {
 
       setState(prev => ({
         ...prev,
+
         requests: prev.requests.map(current =>
           current.id === request.id
             ? {
@@ -227,6 +294,7 @@ export default function ClientView({ state, setState }) {
 
       setState(prev => ({
         ...prev,
+
         requests: prev.requests.map(current =>
           current.id === request.id
             ? {
@@ -254,6 +322,9 @@ export default function ClientView({ state, setState }) {
 
   return (
     <div className="stack">
+
+      {/* CABECERA */}
+
       <section className="hero">
         <p className="eyebrow">
           LiveLocal Barcelona
@@ -271,16 +342,21 @@ export default function ClientView({ state, setState }) {
         </p>
       </section>
 
-      {/* PETICIONES ACTIVAS */}
+      {/* --------------------------------------------------
+          PETICIONES ACTIVAS
+      -------------------------------------------------- */}
 
       {activeRequests.length > 0 && (
         <section className="card">
+
           <h2>
             Mis peticiones activas
           </h2>
 
           <div className="stack">
+
             {activeRequests.map(request => {
+
               const local =
                 state.locals.find(
                   item =>
@@ -293,6 +369,9 @@ export default function ClientView({ state, setState }) {
                   className="requestCard"
                   key={request.id}
                 >
+
+                  {/* INFORMACIÓN BÁSICA */}
+
                   <div>
                     <b>
                       {request.zoneName}
@@ -314,8 +393,10 @@ export default function ClientView({ state, setState }) {
 
                   {request.status ===
                     'pending' && (
+
                     <div className="searching">
                       <span />
+
                       Buscando local cercano...
                     </div>
                   )}
@@ -324,7 +405,9 @@ export default function ClientView({ state, setState }) {
 
                   {request.status ===
                     'matched' && (
+
                     <div className="matched">
+
                       <CheckCircle
                         size={18}
                       />
@@ -345,6 +428,7 @@ export default function ClientView({ state, setState }) {
                           desplazamiento.
                         </small>
                       </div>
+
                     </div>
                   )}
 
@@ -352,23 +436,93 @@ export default function ClientView({ state, setState }) {
 
                   {request.status ===
                     'on_the_way' && (
+
                     <div className="matched">
-                      <CheckCircle
+
+                      <Navigation
                         size={18}
                       />
 
                       <div>
                         <b>
-                          Tu Local está de
-                          camino
+                          Tu Local está de camino
                         </b>
 
                         <p>
-                          Se está desplazando
-                          hacia el punto
-                          solicitado.
+                          Se está desplazando hacia
+                          el punto solicitado.
                         </p>
                       </div>
+
+                    </div>
+                  )}
+
+                  {/* --------------------------------------------------
+                      POSICIÓN GPS EN DIRECTO
+                  -------------------------------------------------- */}
+
+                  {request.liveLocalLocation &&
+                    [
+                      'matched',
+                      'on_the_way',
+                      'arrived',
+                      'in_progress',
+                    ].includes(
+                      request.status
+                    ) && (
+
+                    <div className="locationBox">
+
+                      <div>
+                        <b>
+                          <MapPin size={15} />
+                          {' '}
+                          Local en directo
+                        </b>
+
+                        <p>
+                          Lat{' '}
+                          {Number(
+                            request
+                              .liveLocalLocation
+                              .lat
+                          ).toFixed(6)}
+                          {' · '}
+                          Lng{' '}
+                          {Number(
+                            request
+                              .liveLocalLocation
+                              .lng
+                          ).toFixed(6)}
+                        </p>
+
+                        <small>
+                          Precisión:{' '}
+                          {Math.round(
+                            request
+                              .liveLocalLocation
+                              .accuracy ?? 0
+                          )}{' '}
+                          m
+                        </small>
+
+                        {request
+                          .liveLocalLocation
+                          .updatedAt && (
+
+                          <small>
+                            {' · '}
+                            Actualizado{' '}
+                            {new Date(
+                              request
+                                .liveLocalLocation
+                                .updatedAt
+                            ).toLocaleTimeString()}
+                          </small>
+                        )}
+
+                      </div>
+
                     </div>
                   )}
 
@@ -376,7 +530,9 @@ export default function ClientView({ state, setState }) {
 
                   {request.status ===
                     'arrived' && (
+
                     <div className="matched">
+
                       <CheckCircle
                         size={18}
                       />
@@ -392,11 +548,11 @@ export default function ClientView({ state, setState }) {
                         </p>
 
                         <small>
-                          El Local puede
-                          iniciar ahora la
-                          sesión.
+                          El Local puede iniciar
+                          ahora la sesión.
                         </small>
                       </div>
+
                     </div>
                   )}
 
@@ -409,6 +565,7 @@ export default function ClientView({ state, setState }) {
                   ].includes(
                     request.status
                   ) && (
+
                     <button
                       className="danger"
                       onClick={() =>
@@ -425,6 +582,7 @@ export default function ClientView({ state, setState }) {
 
                   {request.status ===
                     'in_progress' && (
+
                     <>
                       <SessionWorkspace
                         request={request}
@@ -443,16 +601,21 @@ export default function ClientView({ state, setState }) {
                       </button>
                     </>
                   )}
+
                 </div>
               );
             })}
+
           </div>
         </section>
       )}
 
-      {/* NUEVA PETICIÓN */}
+      {/* --------------------------------------------------
+          NUEVA PETICIÓN
+      -------------------------------------------------- */}
 
       <section className="card">
+
         <h2>
           ¿Dónde necesitas un local?
         </h2>
@@ -464,9 +627,11 @@ export default function ClientView({ state, setState }) {
         />
 
         <div className="coverageBox">
+
           <MapPin size={18} />
 
           <div>
+
             <b>
               {selectedZone.name}
             </b>
@@ -480,6 +645,7 @@ export default function ClientView({ state, setState }) {
             </span>
 
             {matches[0] && (
+
               <small>
                 Más cercano:{' '}
                 {matches[0].name},{' '}
@@ -489,10 +655,12 @@ export default function ClientView({ state, setState }) {
                 )}
               </small>
             )}
+
           </div>
         </div>
 
         <div className="formRow">
+
           <label>
             Duración
 
@@ -530,6 +698,7 @@ export default function ClientView({ state, setState }) {
               }
             />
           </label>
+
         </div>
 
         <button
@@ -537,9 +706,12 @@ export default function ClientView({ state, setState }) {
           onClick={requestNow}
         >
           <Search size={18} />
+
           Pedir local ahora
         </button>
+
       </section>
+
     </div>
   );
 }
