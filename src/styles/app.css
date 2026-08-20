@@ -372,6 +372,77 @@
   flex: 0 0 auto;
 }
 
+.activityLayerControl {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 13px;
+  background: #f5f3ff;
+  border: 1px solid #ddd6fe;
+  border-radius: 14px;
+}
+
+.activityLayerControl label {
+  display: flex;
+  grid-template-columns: none;
+  align-items: center;
+  gap: 8px;
+  color: #5b21b6;
+  cursor: pointer;
+}
+
+.activityLayerControl input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: #7c3aed;
+}
+
+.activityLayerControl small {
+  color: #6d28d9;
+}
+
+.activityPopupContent {
+  display: grid;
+  min-width: 220px;
+  gap: 7px;
+}
+
+.activityPopupContent b {
+  font-size: 14px;
+  line-height: 1.3;
+}
+
+.activityPopupContent button {
+  justify-content: center;
+  margin-top: 4px;
+  padding: 9px 11px;
+  background: #7c3aed;
+}
+
+.activityPopupContent a {
+  color: #6d28d9;
+  text-align: center;
+  font-weight: 700;
+}
+
+.activityCategory,
+.activityFree {
+  width: fit-content;
+  padding: 3px 7px;
+  color: #6d28d9;
+  background: #ede9fe;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.activityFree {
+  color: #047857;
+  background: #d1fae5;
+}
+
 .locationPickerSection h3,
 .locationPickerSection p {
   margin: 0;
@@ -392,5 +463,10 @@
 
   .addressResults {
     top: 122px;
+  }
+
+  .activityLayerControl {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }

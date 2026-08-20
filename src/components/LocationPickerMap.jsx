@@ -10,6 +10,8 @@ import {
 
 import L from 'leaflet';
 
+import ActivityLayer from './ActivityLayer';
+
 import 'leaflet/dist/leaflet.css';
 
 const DEFAULT_CENTER = { lat: 41.3874, lng: 2.1686 };
@@ -94,6 +96,11 @@ export default function LocationPickerMap({ value, address, onChange }) {
   const [results, setResults] = useState([]);
   const [status, setStatus] = useState('idle');
   const [error, setError] = useState('');
+  const [showActivities, setShowActivities] = useState(false);
+  const [activityStatus, setActivityStatus] = useState({
+    state: 'idle',
+    count: 0,
+  });
 
   useEffect(() => {
     setQuery(address || '');
@@ -157,6 +164,13 @@ export default function LocationPickerMap({ value, address, onChange }) {
     }
   }
 
+  function selectActivity(position, nextAddress) {
+    setQuery(nextAddress);
+    setResults([]);
+    setError('');
+    onChange(position, nextAddress);
+  }
+
   return (
     <div className="locationPicker">
       <form className="addressSearch" onSubmit={searchAddress}>
@@ -189,6 +203,26 @@ export default function LocationPickerMap({ value, address, onChange }) {
         {error && <small className="error">{error}</small>}
       </form>
 
+      <div className="activityLayerControl">
+        <label>
+          <input
+            type="checkbox"
+            checked={showActivities}
+            onChange={event => setShowActivities(event.target.checked)}
+          />
+          Mostrar actividades cercanas
+        </label>
+        {showActivities && activityStatus.state === 'loading' && (
+          <small>Cargando agenda…</small>
+        )}
+        {showActivities && activityStatus.state === 'ready' && (
+          <small>{activityStatus.count} actividades vigentes disponibles</small>
+        )}
+        {showActivities && activityStatus.state === 'error' && (
+          <small className="error">No se pudo cargar la agenda.</small>
+        )}
+      </div>
+
       <div className="locationPickerMap">
         <MapContainer
           center={[value?.lat ?? DEFAULT_CENTER.lat, value?.lng ?? DEFAULT_CENTER.lng]}
@@ -201,6 +235,11 @@ export default function LocationPickerMap({ value, address, onChange }) {
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
           <MapController position={value} />
+          <ActivityLayer
+            enabled={showActivities}
+            onSelect={selectActivity}
+            onStatusChange={setActivityStatus}
+          />
           <LocationMarker position={value} onChange={selectMapPoint} />
         </MapContainer>
       </div>
@@ -213,6 +252,11 @@ export default function LocationPickerMap({ value, address, onChange }) {
       <small className="muted">
         Búsqueda de direcciones © OpenStreetMap contributors
       </small>
+      {showActivities && (
+        <small className="muted">
+          Actividades: Ajuntament de Barcelona · Open Data BCN (CC BY 4.0)
+        </small>
+      )}
     </div>
   );
 }
