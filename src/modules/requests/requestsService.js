@@ -7,7 +7,7 @@ export async function createRequest(request) {
 
   const payload = {
     id: request.id,
-    zone: request.zoneId,
+    zone: request.address,
     description: request.notes,
     duration_minutes: request.duration,
     status: request.status,

@@ -11,7 +11,7 @@ import {
   Navigation,
 } from 'lucide-react';
 
-import { zones, prices } from '../../data/seed';
+import { prices } from '../../data/seed';
 
 import {
   getMatchingLocals,
@@ -22,7 +22,6 @@ import {
   formatDistance,
 } from '../location/location';
 
-import ZoneMap from '../../components/ZoneMap';
 import LocationPickerMap from '../../components/LocationPickerMap';
 import LiveTrackingMap from '../../components/LiveTrackingMap';
 
@@ -42,18 +41,8 @@ export default function ClientView({
 }) {
   const { user } = useAuth();
 
-  const [zone, setZone] =
-    useState('gothic');
-
-  const [
-    targetLocation,
-    setTargetLocation,
-  ] = useState(
-    () =>
-      zones.find(
-        item => item.id === 'gothic'
-      )?.center ?? null
-  );
+  const [targetLocation, setTargetLocation] = useState(null);
+  const [targetAddress, setTargetAddress] = useState('');
 
   const [duration, setDuration] =
     useState(15);
@@ -238,37 +227,22 @@ export default function ClientView({
           ).getTime()
       );
 
-  const selectedZone =
-    zones.find(
-      item =>
-        item.id === zone
-    );
-
   const matches =
     useMemo(
       () =>
         getMatchingLocals(
           state.locals,
-          zone,
-          zones,
           targetLocation
         ),
       [
         state.locals,
-        zone,
         targetLocation,
       ]
     );
 
-  function selectZone(zoneId) {
-    const nextZone = zones.find(
-      item => item.id === zoneId
-    );
-
-    setZone(zoneId);
-    setTargetLocation(
-      nextZone?.center ?? null
-    );
+  function selectTargetLocation(position, address) {
+    setTargetLocation(position);
+    setTargetAddress(address);
   }
 
   // --------------------------------------------------
@@ -284,15 +258,7 @@ export default function ClientView({
       return;
     }
 
-    if (!selectedZone) {
-      alert(
-        'No se pudo determinar la zona seleccionada'
-      );
-
-      return;
-    }
-
-    if (!targetLocation) {
+    if (!targetLocation || !targetAddress || targetAddress === 'Buscando dirección…') {
       alert(
         'Selecciona el punto exacto de la solicitud'
       );
@@ -310,14 +276,13 @@ export default function ClientView({
       clientId:
         user.id,
 
-      zoneId:
-        zone,
+      address: targetAddress,
 
-      zoneName:
-        selectedZone.name,
+      zoneId: targetAddress,
 
-      zoneCenter:
-        selectedZone.center,
+      zoneName: targetAddress,
+
+      zoneCenter: targetLocation,
 
       targetLocation,
 
@@ -345,7 +310,7 @@ export default function ClientView({
 
       bestEta:
         best?.etaMinutes ??
-        selectedZone.eta,
+        null,
 
       bestDistanceKm:
         best?.distanceKm ??
@@ -851,31 +816,25 @@ export default function ClientView({
           ¿Dónde necesitas un local?
         </h2>
 
-        <ZoneMap
-          zones={zones}
-          selected={zone}
-          onSelect={selectZone}
-        />
-
         <div className="locationPickerSection">
           <div>
-            <h3>Marca el punto exacto</h3>
+            <h3>Busca o marca el punto exacto</h3>
             <p className="muted">
-              Pulsa en el mapa para mover el punto de destino.
+              Escribe una dirección o selecciónala directamente en el mapa.
             </p>
           </div>
 
           <LocationPickerMap
-            center={selectedZone.center}
             value={targetLocation}
-            onChange={setTargetLocation}
+            address={targetAddress}
+            onChange={selectTargetLocation}
           />
 
-          {targetLocation && (
-            <small className="muted">
-              Destino: {targetLocation.lat.toFixed(6)},{' '}
-              {targetLocation.lng.toFixed(6)}
-            </small>
+          {targetLocation && targetAddress && (
+            <div className="selectedAddress">
+              <MapPin size={18} />
+              <span>{targetAddress}</span>
+            </div>
           )}
         </div>
 
@@ -888,15 +847,12 @@ export default function ClientView({
           <div>
 
             <b>
-              {selectedZone.name}
+              {targetAddress || 'Selecciona un destino'}
             </b>
 
             <span>
-              {matches.length} locales
-              compatibles · ETA{' '}
-              {matches[0]?.etaMinutes ??
-                selectedZone.eta}{' '}
-              min
+              {matches.length} locales cercanos
+              {matches[0] && ` · ETA ${matches[0].etaMinutes} min`}
             </span>
 
             {matches[0] && (

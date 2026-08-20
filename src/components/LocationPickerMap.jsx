@@ -1,15 +1,35 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 
 import {
   MapContainer,
   Marker,
   TileLayer,
+  useMap,
   useMapEvents,
 } from 'react-leaflet';
 
 import L from 'leaflet';
 
 import 'leaflet/dist/leaflet.css';
+
+const DEFAULT_CENTER = { lat: 41.3874, lng: 2.1686 };
+const NOMINATIM_URL = 'https://nominatim.openstreetmap.org';
+let lastNominatimRequestAt = 0;
+let nominatimQueue = Promise.resolve();
+
+function fetchNominatim(path) {
+  const request = nominatimQueue.then(async () => {
+    const waitMs = Math.max(0, 1000 - (Date.now() - lastNominatimRequestAt));
+    if (waitMs) await new Promise(resolve => setTimeout(resolve, waitMs));
+    lastNominatimRequestAt = Date.now();
+    return fetch(`${NOMINATIM_URL}${path}`, {
+      headers: { 'Accept-Language': 'es' },
+    });
+  });
+
+  nominatimQueue = request.catch(() => {});
+  return request;
+}
 
 const targetIcon = new L.Icon({
   iconUrl:
@@ -23,13 +43,20 @@ const targetIcon = new L.Icon({
   shadowSize: [41, 41],
 });
 
+function MapController({ position }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (position) map.flyTo([position.lat, position.lng], 16);
+  }, [map, position]);
+
+  return null;
+}
+
 function LocationMarker({ position, onChange }) {
   useMapEvents({
     click(event) {
-      onChange({
-        lat: event.latlng.lat,
-        lng: event.latlng.lng,
-      });
+      onChange({ lat: event.latlng.lat, lng: event.latlng.lng });
     },
   });
 
@@ -37,37 +64,155 @@ function LocationMarker({ position, onChange }) {
     <Marker
       position={[position.lat, position.lng]}
       icon={targetIcon}
+      draggable
+      eventHandlers={{
+        dragend(event) {
+          const point = event.target.getLatLng();
+          onChange({ lat: point.lat, lng: point.lng });
+        },
+      }}
     />
   ) : null;
 }
 
-export default function LocationPickerMap({
-  center,
-  value,
-  onChange,
-}) {
-  return (
-    <div className="locationPickerMap">
-      <MapContainer
-        key={`${center.lat}-${center.lng}`}
-        center={[center.lat, center.lng]}
-        zoom={16}
-        scrollWheelZoom
-        style={{
-          width: '100%',
-          height: '100%',
-        }}
-      >
-        <TileLayer
-          attribution="&copy; OpenStreetMap contributors"
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
+async function reverseGeocode(position) {
+  const params = new URLSearchParams({
+    format: 'jsonv2',
+    lat: String(position.lat),
+    lon: String(position.lng),
+    zoom: '18',
+  });
+  const response = await fetchNominatim(`/reverse?${params}`);
 
-        <LocationMarker
-          position={value}
-          onChange={onChange}
-        />
-      </MapContainer>
+  if (!response.ok) throw new Error('No se pudo obtener la dirección');
+  const result = await response.json();
+  return result.display_name || 'Punto seleccionado en el mapa';
+}
+
+export default function LocationPickerMap({ value, address, onChange }) {
+  const [query, setQuery] = useState(address || '');
+  const [results, setResults] = useState([]);
+  const [status, setStatus] = useState('idle');
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    setQuery(address || '');
+  }, [address]);
+
+  async function searchAddress(event) {
+    event.preventDefault();
+    const cleanQuery = query.trim();
+    if (cleanQuery.length < 3) {
+      setError('Escribe al menos 3 caracteres.');
+      return;
+    }
+
+    setStatus('searching');
+    setError('');
+    setResults([]);
+
+    try {
+      const params = new URLSearchParams({
+        format: 'jsonv2',
+        q: cleanQuery,
+        limit: '5',
+        addressdetails: '1',
+      });
+      const response = await fetchNominatim(`/search?${params}`);
+      if (!response.ok) throw new Error('No se pudo buscar la dirección');
+      const data = await response.json();
+      setResults(data);
+      if (!data.length) setError('No encontramos esa dirección. Prueba con más detalle.');
+    } catch (searchError) {
+      console.error('Error buscando dirección:', searchError);
+      setError('La búsqueda no está disponible ahora mismo. Puedes marcar el punto en el mapa.');
+    } finally {
+      setStatus('idle');
+    }
+  }
+
+  function selectResult(result) {
+    const nextAddress = result.display_name;
+    setQuery(nextAddress);
+    setResults([]);
+    onChange(
+      { lat: Number(result.lat), lng: Number(result.lon) },
+      nextAddress
+    );
+  }
+
+  async function selectMapPoint(position) {
+    setStatus('resolving');
+    setError('');
+    onChange(position, 'Buscando dirección…');
+
+    try {
+      onChange(position, await reverseGeocode(position));
+    } catch (reverseError) {
+      console.error('Error resolviendo dirección:', reverseError);
+      onChange(position, `${position.lat.toFixed(6)}, ${position.lng.toFixed(6)}`);
+      setError('No pudimos obtener el nombre de la calle, pero el punto quedó seleccionado.');
+    } finally {
+      setStatus('idle');
+    }
+  }
+
+  return (
+    <div className="locationPicker">
+      <form className="addressSearch" onSubmit={searchAddress}>
+        <label htmlFor="request-address">Dirección de destino</label>
+        <div className="addressSearchRow">
+          <input
+            id="request-address"
+            type="search"
+            value={query}
+            onChange={event => setQuery(event.target.value)}
+            placeholder="Calle, número, ciudad…"
+            autoComplete="street-address"
+          />
+          <button type="submit" disabled={status === 'searching'}>
+            {status === 'searching' ? 'Buscando…' : 'Buscar'}
+          </button>
+        </div>
+
+        {results.length > 0 && (
+          <ul className="addressResults">
+            {results.map(result => (
+              <li key={result.place_id}>
+                <button type="button" onClick={() => selectResult(result)}>
+                  {result.display_name}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        {error && <small className="error">{error}</small>}
+      </form>
+
+      <div className="locationPickerMap">
+        <MapContainer
+          center={[value?.lat ?? DEFAULT_CENTER.lat, value?.lng ?? DEFAULT_CENTER.lng]}
+          zoom={value ? 16 : 13}
+          scrollWheelZoom
+          style={{ width: '100%', height: '100%' }}
+        >
+          <TileLayer
+            attribution="&copy; OpenStreetMap contributors"
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          />
+          <MapController position={value} />
+          <LocationMarker position={value} onChange={selectMapPoint} />
+        </MapContainer>
+      </div>
+
+      <small className="muted">
+        {status === 'resolving'
+          ? 'Obteniendo la dirección del punto…'
+          : 'También puedes pulsar el mapa o arrastrar el marcador.'}
+      </small>
+      <small className="muted">
+        Búsqueda de direcciones © OpenStreetMap contributors
+      </small>
     </div>
   );
 }

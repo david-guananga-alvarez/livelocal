@@ -311,6 +311,67 @@
   margin-top: 18px;
 }
 
+.locationPicker {
+  display: grid;
+  gap: 12px;
+}
+
+.addressSearch {
+  position: relative;
+  display: grid;
+  gap: 8px;
+}
+
+.addressSearchRow {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+}
+
+.addressResults {
+  position: absolute;
+  z-index: 1001;
+  top: 76px;
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  background: white;
+  border: 1px solid #d1d5db;
+  border-radius: 14px;
+  box-shadow: 0 16px 45px #0f172a26;
+}
+
+.addressResults button {
+  width: 100%;
+  padding: 10px;
+  color: #111827;
+  background: transparent;
+  text-align: left;
+  font-weight: 600;
+}
+
+.addressResults button:hover {
+  background: #eff6ff;
+  transform: none;
+}
+
+.selectedAddress {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 12px;
+  color: #1e3a8a;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 14px;
+}
+
+.selectedAddress svg {
+  flex: 0 0 auto;
+}
+
 .locationPickerSection h3,
 .locationPickerSection p {
   margin: 0;
@@ -322,4 +383,14 @@
   overflow: hidden;
   border: 1px solid #d1d5db;
   border-radius: 18px;
+}
+
+@media(max-width: 600px) {
+  .addressSearchRow {
+    grid-template-columns: 1fr;
+  }
+
+  .addressResults {
+    top: 122px;
+  }
 }
