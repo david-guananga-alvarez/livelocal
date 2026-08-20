@@ -67,7 +67,15 @@ export default function ActivityLayer({
 
     return activities.filter(activity => {
       const activityStart = new Date(activity.startDate).getTime();
-      return activityStart >= startTime && activityStart <= endTime;
+      const activityEnd = new Date(
+        activity.endDate || activity.startDate
+      ).getTime();
+      return (
+        Number.isFinite(activityStart) &&
+        Number.isFinite(activityEnd) &&
+        activityStart <= endTime &&
+        activityEnd >= startTime
+      );
     });
   }, [activities, enabled, rangeEnd, rangeStart]);
 

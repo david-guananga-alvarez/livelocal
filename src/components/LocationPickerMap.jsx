@@ -138,9 +138,11 @@ export default function LocationPickerMap({ value, address, onChange }) {
       };
     }
 
+    const start = new Date(now);
+    start.setHours(0, 0, 0, 0);
     const end = new Date(now);
     end.setHours(23, 59, 59, 999);
-    return { start: now, end };
+    return { start, end };
   }, [activityDate, activityTime, activityTimeMode]);
 
   useEffect(() => {
