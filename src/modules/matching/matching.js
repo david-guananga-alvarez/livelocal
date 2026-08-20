@@ -1,12 +1,23 @@
 import { distanceKm, estimateEtaMinutes } from '../location/location';
 
-export function getMatchingLocals(locals, zoneId, zones, radiusKm = 3) {
+export function getMatchingLocals(
+  locals,
+  zoneId,
+  zones,
+  targetLocation = null,
+  radiusKm = 3
+) {
   const zone = zones.find(z => z.id === zoneId);
-  const zoneCenter = zone?.center;
+  const destination = targetLocation || zone?.center;
   return locals
-    .filter(l => l.available && (l.zones.includes(zoneId) || distanceKm(l.location, zoneCenter) <= radiusKm))
+    .filter(
+      local =>
+        local.available &&
+        (local.zones.includes(zoneId) ||
+          distanceKm(local.location, destination) <= radiusKm)
+    )
     .map(l => {
-      const km = distanceKm(l.location, zoneCenter);
+      const km = distanceKm(l.location, destination);
       return { ...l, distanceKm: km, etaMinutes: estimateEtaMinutes(km) };
     })
     .sort((a, b) => (a.distanceKm ?? 999) - (b.distanceKm ?? 999));

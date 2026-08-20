@@ -23,6 +23,7 @@ import {
 } from '../location/location';
 
 import ZoneMap from '../../components/ZoneMap';
+import LocationPickerMap from '../../components/LocationPickerMap';
 import LiveTrackingMap from '../../components/LiveTrackingMap';
 
 import SessionWorkspace from '../session/SessionWorkspace';
@@ -43,6 +44,16 @@ export default function ClientView({
 
   const [zone, setZone] =
     useState('gothic');
+
+  const [
+    targetLocation,
+    setTargetLocation,
+  ] = useState(
+    () =>
+      zones.find(
+        item => item.id === 'gothic'
+      )?.center ?? null
+  );
 
   const [duration, setDuration] =
     useState(15);
@@ -100,6 +111,15 @@ export default function ClientView({
                         createdAt:
                           row.created_at ??
                           request.createdAt,
+
+                        targetLocation:
+                          row.target_latitude != null &&
+                          row.target_longitude != null
+                            ? {
+                                lat: row.target_latitude,
+                                lng: row.target_longitude,
+                              }
+                            : request.targetLocation,
                       }
                     : request
               ),
@@ -230,13 +250,26 @@ export default function ClientView({
         getMatchingLocals(
           state.locals,
           zone,
-          zones
+          zones,
+          targetLocation
         ),
       [
         state.locals,
         zone,
+        targetLocation,
       ]
     );
+
+  function selectZone(zoneId) {
+    const nextZone = zones.find(
+      item => item.id === zoneId
+    );
+
+    setZone(zoneId);
+    setTargetLocation(
+      nextZone?.center ?? null
+    );
+  }
 
   // --------------------------------------------------
   // CREATE REQUEST
@@ -254,6 +287,14 @@ export default function ClientView({
     if (!selectedZone) {
       alert(
         'No se pudo determinar la zona seleccionada'
+      );
+
+      return;
+    }
+
+    if (!targetLocation) {
+      alert(
+        'Selecciona el punto exacto de la solicitud'
       );
 
       return;
@@ -277,6 +318,8 @@ export default function ClientView({
 
       zoneCenter:
         selectedZone.center,
+
+      targetLocation,
 
       duration,
 
@@ -811,8 +854,30 @@ export default function ClientView({
         <ZoneMap
           zones={zones}
           selected={zone}
-          onSelect={setZone}
+          onSelect={selectZone}
         />
+
+        <div className="locationPickerSection">
+          <div>
+            <h3>Marca el punto exacto</h3>
+            <p className="muted">
+              Pulsa en el mapa para mover el punto de destino.
+            </p>
+          </div>
+
+          <LocationPickerMap
+            center={selectedZone.center}
+            value={targetLocation}
+            onChange={setTargetLocation}
+          />
+
+          {targetLocation && (
+            <small className="muted">
+              Destino: {targetLocation.lat.toFixed(6)},{' '}
+              {targetLocation.lng.toFixed(6)}
+            </small>
+          )}
+        </div>
 
         <div className="coverageBox">
 

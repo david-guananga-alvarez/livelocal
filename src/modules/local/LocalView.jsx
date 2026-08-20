@@ -384,6 +384,15 @@ export default function LocalView({ state, setState }) {
                 zoneData?.center ??
                 null,
 
+              targetLocation:
+                row.target_latitude != null &&
+                row.target_longitude != null
+                  ? {
+                      lat: row.target_latitude,
+                      lng: row.target_longitude,
+                    }
+                  : null,
+
               duration:
                 row.duration_minutes,
 
@@ -499,6 +508,15 @@ export default function LocalView({ state, setState }) {
                 zoneData?.center ??
                 null,
 
+              targetLocation:
+                row.target_latitude != null &&
+                row.target_longitude != null
+                  ? {
+                      lat: row.target_latitude,
+                      lng: row.target_longitude,
+                    }
+                  : null,
+
               duration:
                 row.duration_minutes,
 
@@ -585,7 +603,8 @@ export default function LocalView({ state, setState }) {
     useMemo(() => {
       return state.requests.map(
         request => {
-          const zoneCenter =
+          const destination =
+            request.targetLocation ||
             request.zoneCenter ||
             zones.find(
               zone =>
@@ -596,7 +615,7 @@ export default function LocalView({ state, setState }) {
           const km =
             distanceKm(
               local.location,
-              zoneCenter
+              destination
             );
 
           return {

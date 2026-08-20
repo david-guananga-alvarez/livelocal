@@ -12,6 +12,10 @@ export async function createRequest(request) {
     duration_minutes: request.duration,
     status: request.status,
     client_id: request.clientId ?? null,
+    target_latitude:
+      request.targetLocation?.lat ?? null,
+    target_longitude:
+      request.targetLocation?.lng ?? null,
   };
 
   const { data, error } = await supabase
