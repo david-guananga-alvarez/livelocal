@@ -1,48 +1,33 @@
 const DATASET_URL =
-  'https://opendata-ajuntament.barcelona.cat/data/dataset/a25e60cd-3083-4252-9fce-81f733871cb1/resource/da9e71de-0f8e-417d-928a-56380bfd0231/download';
+  'https://opendata-ajuntament.barcelona.cat/data/api/action/datastore_search?resource_id=877ccf66-9106-4ae2-be51-95a9f6469e4c&limit=6000';
 
 const AGENDA_URL = 'https://guia.barcelona.cat/ca/agenda';
 const MAX_FUTURE_DAYS = 30;
 
-function getSourceUrl(event) {
-  const web = event.values?.find(
-    value => value.attribute_type === 'url' && value.url_value
-  );
-  return web?.url_value || AGENDA_URL;
-}
-
-function getCategory(event) {
-  return (
-    event.classifications_data?.find(
-      item => item.level === 1 && item.full_path?.startsWith('Tipologia AG')
-    )?.name || 'Activitat'
-  );
-}
-
 function normalizeEvent(event) {
-  const coordinates = event.geo_epgs_4326_latlon;
-  if (!coordinates?.lat || !coordinates?.lon) return null;
+  const latitude = Number(event.geo_epgs_4326_lat);
+  const longitude = Number(event.geo_epgs_4326_lon);
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
 
-  const mainAddress =
-    event.addresses?.find(address => address.main_address) || event.addresses?.[0];
+  const streetNumber = event.addresses_start_street_number
+    ? String(event.addresses_start_street_number)
+    : '';
+  const address = [event.addresses_road_name, streetNumber]
+    .filter(Boolean)
+    .join(' ');
 
   return {
-    id: String(event.register_id),
+    id: String(event.register_id).replace(/^\uFEFF/, ''),
     title: event.name,
-    category: getCategory(event),
+    category: 'Activitat',
     startDate: event.start_date,
     endDate: event.end_date,
-    address:
-      mainAddress?.place ||
-      [mainAddress?.road_name, mainAddress?.street_number_1]
-        .filter(Boolean)
-        .join(' ') ||
-      'Barcelona',
-    district: mainAddress?.district_name || null,
-    latitude: Number(coordinates.lat),
-    longitude: Number(coordinates.lon),
-    free: event.tickets_data?.some(ticket => ticket.name === 'Lliure') || false,
-    sourceUrl: getSourceUrl(event),
+    address: address || event.addresses_district_name || 'Barcelona',
+    district: event.addresses_district_name || null,
+    latitude,
+    longitude,
+    free: false,
+    sourceUrl: AGENDA_URL,
   };
 }
 
@@ -61,7 +46,12 @@ module.exports = async function handler(request, response) {
       throw new Error(`Open Data BCN respondió ${sourceResponse.status}`);
     }
 
-    const sourceEvents = await sourceResponse.json();
+    const sourceData = await sourceResponse.json();
+    if (!sourceData.success || !Array.isArray(sourceData.result?.records)) {
+      throw new Error('Open Data BCN devolvió una respuesta inválida');
+    }
+
+    const sourceEvents = sourceData.result.records;
     const now = new Date();
     const horizon = new Date(now);
     horizon.setDate(horizon.getDate() + MAX_FUTURE_DAYS);
@@ -71,7 +61,6 @@ module.exports = async function handler(request, response) {
         const startDate = new Date(event.start_date);
         const endDate = new Date(event.end_date || event.start_date);
         return (
-          event.status === 'published' &&
           Number.isFinite(startDate.getTime()) &&
           Number.isFinite(endDate.getTime()) &&
           endDate >= now &&
