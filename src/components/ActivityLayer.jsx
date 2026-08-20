@@ -12,7 +12,13 @@ const dateFormatter = new Intl.DateTimeFormat('es-ES', {
   minute: '2-digit',
 });
 
-export default function ActivityLayer({ enabled, onSelect, onStatusChange }) {
+export default function ActivityLayer({
+  enabled,
+  rangeStart,
+  rangeEnd,
+  onSelect,
+  onStatusChange,
+}) {
   const [activities, setActivities] = useState([]);
   const [bounds, setBounds] = useState(null);
 
@@ -41,7 +47,6 @@ export default function ActivityLayer({ enabled, onSelect, onStatusChange }) {
       .then(data => {
         if (!active) return;
         setActivities(data);
-        onStatusChange({ state: 'ready', count: data.length });
       })
       .catch(error => {
         console.error('Error cargando actividades:', error);
@@ -53,14 +58,33 @@ export default function ActivityLayer({ enabled, onSelect, onStatusChange }) {
     };
   }, [enabled, onStatusChange]);
 
+  const filteredActivities = useMemo(() => {
+    const startTime = rangeStart?.getTime();
+    const endTime = rangeEnd?.getTime();
+    if (!enabled || !Number.isFinite(startTime) || !Number.isFinite(endTime)) {
+      return [];
+    }
+
+    return activities.filter(activity => {
+      const activityStart = new Date(activity.startDate).getTime();
+      return activityStart >= startTime && activityStart <= endTime;
+    });
+  }, [activities, enabled, rangeEnd, rangeStart]);
+
+  useEffect(() => {
+    if (enabled && activities.length) {
+      onStatusChange({ state: 'ready', count: filteredActivities.length });
+    }
+  }, [activities.length, enabled, filteredActivities.length, onStatusChange]);
+
   const visibleActivities = useMemo(() => {
     if (!enabled || !bounds) return [];
-    return activities
+    return filteredActivities
       .filter(activity =>
         bounds.contains([activity.latitude, activity.longitude])
       )
       .slice(0, MAX_VISIBLE_ACTIVITIES);
-  }, [activities, bounds, enabled]);
+  }, [bounds, enabled, filteredActivities]);
 
   return visibleActivities.map(activity => (
     <CircleMarker

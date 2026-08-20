@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 
 import {
   MapContainer,
@@ -16,6 +16,17 @@ import 'leaflet/dist/leaflet.css';
 
 const DEFAULT_CENTER = { lat: 41.3874, lng: 2.1686 };
 const NOMINATIM_URL = 'https://nominatim.openstreetmap.org';
+const padDatePart = value => String(value).padStart(2, '0');
+
+function toDateInputValue(date) {
+  return `${date.getFullYear()}-${padDatePart(date.getMonth() + 1)}-${padDatePart(
+    date.getDate()
+  )}`;
+}
+
+function toTimeInputValue(date) {
+  return `${padDatePart(date.getHours())}:${padDatePart(date.getMinutes())}`;
+}
 let lastNominatimRequestAt = 0;
 let nominatimQueue = Promise.resolve();
 
@@ -101,6 +112,36 @@ export default function LocationPickerMap({ value, address, onChange }) {
     state: 'idle',
     count: 0,
   });
+  const [activityTimeMode, setActivityTimeMode] = useState('today');
+  const [activityDate, setActivityDate] = useState(() =>
+    toDateInputValue(new Date())
+  );
+  const [activityTime, setActivityTime] = useState(() =>
+    toTimeInputValue(new Date())
+  );
+
+  const activityTimeRange = useMemo(() => {
+    const now = new Date();
+
+    if (activityTimeMode === 'next-hours') {
+      return {
+        start: now,
+        end: new Date(now.getTime() + 3 * 60 * 60 * 1000),
+      };
+    }
+
+    if (activityTimeMode === 'custom') {
+      const start = new Date(`${activityDate}T${activityTime || '00:00'}`);
+      return {
+        start,
+        end: new Date(start.getTime() + 3 * 60 * 60 * 1000),
+      };
+    }
+
+    const end = new Date(now);
+    end.setHours(23, 59, 59, 999);
+    return { start: now, end };
+  }, [activityDate, activityTime, activityTimeMode]);
 
   useEffect(() => {
     setQuery(address || '');
@@ -223,6 +264,57 @@ export default function LocationPickerMap({ value, address, onChange }) {
         )}
       </div>
 
+      {showActivities && (
+        <div className="activityTimeFilters">
+          <div className="activityTimePresets" role="group" aria-label="Cuándo">
+            <button
+              type="button"
+              className={activityTimeMode === 'today' ? 'active' : ''}
+              onClick={() => setActivityTimeMode('today')}
+            >
+              Hoy
+            </button>
+            <button
+              type="button"
+              className={activityTimeMode === 'next-hours' ? 'active' : ''}
+              onClick={() => setActivityTimeMode('next-hours')}
+            >
+              Próximas 3 horas
+            </button>
+            <button
+              type="button"
+              className={activityTimeMode === 'custom' ? 'active' : ''}
+              onClick={() => setActivityTimeMode('custom')}
+            >
+              Fecha y hora
+            </button>
+          </div>
+
+          {activityTimeMode === 'custom' && (
+            <div className="activityDateTimeInputs">
+              <label>
+                Fecha
+                <input
+                  type="date"
+                  value={activityDate}
+                  min={toDateInputValue(new Date())}
+                  onChange={event => setActivityDate(event.target.value)}
+                />
+              </label>
+              <label>
+                Hora
+                <input
+                  type="time"
+                  value={activityTime}
+                  onChange={event => setActivityTime(event.target.value)}
+                />
+              </label>
+              <small>Se mostrarán las actividades que empiezan durante las 3 horas siguientes.</small>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="locationPickerMap">
         <MapContainer
           center={[value?.lat ?? DEFAULT_CENTER.lat, value?.lng ?? DEFAULT_CENTER.lng]}
@@ -237,6 +329,8 @@ export default function LocationPickerMap({ value, address, onChange }) {
           <MapController position={value} />
           <ActivityLayer
             enabled={showActivities}
+            rangeStart={activityTimeRange.start}
+            rangeEnd={activityTimeRange.end}
             onSelect={selectActivity}
             onStatusChange={setActivityStatus}
           />

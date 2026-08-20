@@ -403,6 +403,45 @@
   color: #6d28d9;
 }
 
+.activityTimeFilters {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  background: #fafafa;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+}
+
+.activityTimePresets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.activityTimePresets button {
+  padding: 8px 11px;
+  color: #4c1d95;
+  background: #ede9fe;
+  font-size: 13px;
+}
+
+.activityTimePresets button.active {
+  color: white;
+  background: #7c3aed;
+}
+
+.activityDateTimeInputs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(150px, 220px)) 1fr;
+  align-items: end;
+  gap: 10px;
+}
+
+.activityDateTimeInputs small {
+  align-self: center;
+  color: #6b7280;
+}
+
 .activityPopupContent {
   display: grid;
   min-width: 220px;
@@ -468,5 +507,9 @@
   .activityLayerControl {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .activityDateTimeInputs {
+    grid-template-columns: 1fr;
   }
 }
