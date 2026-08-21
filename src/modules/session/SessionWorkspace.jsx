@@ -26,10 +26,11 @@ export default function SessionWorkspace({
   if (!request) return null;
 
   const activeIndex = panels.findIndex(panel => panel.id === activePanel);
-  const localLocation =
-    request.liveLocalLocation ||
-    state.locals.find(local => local.id === request.localId)?.location ||
-    null;
+  const localLocation = role === 'Local'
+    ? state.locals[0]?.location || request.liveLocalLocation || null
+    : request.liveLocalLocation ||
+      state.locals.find(local => local.id === request.localId)?.location ||
+      null;
 
   function selectPanel(panelId) {
     setActivePanel(panelId);
