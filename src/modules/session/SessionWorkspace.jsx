@@ -8,6 +8,7 @@ import {
   deleteSessionPoint,
   getSessionPoints,
   subscribeToSessionPoints,
+  updateSessionSuggestionStatus,
 } from './sessionPointsService';
 
 const panels = [
@@ -34,6 +35,7 @@ export default function SessionWorkspace({
   const [pointInstruction, setPointInstruction] = useState('');
   const [pointError, setPointError] = useState('');
   const [savingPoint, setSavingPoint] = useState(false);
+  const [progressingPointId, setProgressingPointId] = useState(null);
   const touchStartRef = useRef(null);
   const markChatUnread = useCallback(() => setChatUnread(true), []);
 
@@ -58,6 +60,12 @@ export default function SessionWorkspace({
   if (!request) return null;
 
   const activeIndex = panels.findIndex(panel => panel.id === activePanel);
+  const activeSuggestion = sessionPoints.find(point => point.progressStatus === 'in_progress');
+  const orderedSuggestions = [
+    ...sessionPoints.filter(point => point.progressStatus === 'in_progress'),
+    ...sessionPoints.filter(point => point.progressStatus === 'pending'),
+    ...sessionPoints.filter(point => point.progressStatus === 'completed'),
+  ];
   const localLocation = role === 'Local'
     ? state.locals[0]?.location || request.liveLocalLocation || null
     : request.liveLocalLocation ||
@@ -138,6 +146,22 @@ export default function SessionWorkspace({
       setSessionPoints(current => current.filter(point => point.id !== pointId));
     } catch (error) {
       setPointError(error.message || 'No se ha podido eliminar el punto');
+    }
+  }
+
+  async function progressSuggestion(point, nextStatus) {
+    if (progressingPointId) return;
+    setProgressingPointId(point.id);
+    setPointError('');
+    try {
+      const updated = await updateSessionSuggestionStatus(point.id, nextStatus);
+      setSessionPoints(current => current.map(item => item.id === updated.id ? updated : item));
+    } catch (error) {
+      setPointError(error.code === '23505'
+        ? 'Finaliza la actividad actual antes de iniciar otra.'
+        : error.message || 'No se ha podido actualizar la actividad');
+    } finally {
+      setProgressingPointId(null);
     }
   }
 
@@ -229,6 +253,48 @@ export default function SessionWorkspace({
                 <button type="button" className="secondary" onClick={() => setDraftRoute([])} disabled={!draftRoute.length}>Limpiar</button>
                 <button type="button" className="primary" onClick={prepareRoute} disabled={draftRoute.length < 2}>Sugerir ruta</button>
               </div>
+            )}
+            {role === 'Local' && (
+              <section className="sessionSuggestionQueue" aria-labelledby="session-suggestions-title">
+                <div className="sessionSuggestionQueueHeader">
+                  <div>
+                    <p className="stepLabel">Plan del cliente</p>
+                    <h4 id="session-suggestions-title">Sugerencias de la sesión</h4>
+                  </div>
+                  <span>{sessionPoints.length}</span>
+                </div>
+                {!orderedSuggestions.length ? (
+                  <p className="sessionSuggestionEmpty">El cliente todavía no ha compartido ninguna acción.</p>
+                ) : (
+                  <div className="sessionSuggestionList">
+                    {orderedSuggestions.map((point, index) => (
+                      <article key={point.id} className={`sessionSuggestionCard sessionSuggestionCard-${point.progressStatus}`}>
+                        <div className="sessionSuggestionNumber">{index + 1}</div>
+                        <div className="sessionSuggestionBody">
+                          <div className="sessionSuggestionTitleRow">
+                            <strong>{point.title || 'Sugerencia del cliente'}</strong>
+                            <span className={`suggestionStatus suggestionStatus-${point.progressStatus}`}>
+                              {point.progressStatus === 'in_progress' ? 'En curso' : point.progressStatus === 'completed' ? 'Finalizada' : 'Pendiente'}
+                            </span>
+                          </div>
+                          <small>{point.type === 'route' ? `Ruta · ${point.route.length} puntos` : point.type === 'place' ? 'Comercio o lugar' : 'Punto concreto'}</small>
+                          {point.instruction && <p>{point.instruction}</p>}
+                        </div>
+                        {point.progressStatus === 'pending' && (
+                          <button type="button" className="primary" disabled={Boolean(activeSuggestion) || Boolean(progressingPointId)} onClick={() => progressSuggestion(point, 'in_progress')}>
+                            {progressingPointId === point.id ? 'Iniciando…' : 'Iniciar'}
+                          </button>
+                        )}
+                        {point.progressStatus === 'in_progress' && (
+                          <button type="button" className="primary" disabled={Boolean(progressingPointId)} onClick={() => progressSuggestion(point, 'completed')}>
+                            {progressingPointId === point.id ? 'Finalizando…' : 'Finalizar'}
+                          </button>
+                        )}
+                      </article>
+                    ))}
+                  </div>
+                )}
+              </section>
             )}
             {pointError && <p className="sessionPointError" role="alert">{pointError}</p>}
           </div>

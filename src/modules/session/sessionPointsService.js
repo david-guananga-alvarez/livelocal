@@ -12,6 +12,10 @@ function mapPoint(row) {
       ? row.route.map(vertex => ({ lat: Number(vertex.lat), lng: Number(vertex.lng) }))
       : [],
     instruction: row.instruction || '',
+    progressStatus: row.progress_status || 'pending',
+    startedBy: row.started_by || null,
+    startedAt: row.started_at || null,
+    completedAt: row.completed_at || null,
     createdAt: row.created_at,
   };
 }
@@ -57,6 +61,18 @@ export async function deleteSessionPoint(pointId) {
   if (!supabase) throw new Error('Supabase no está configurado');
   const { error } = await supabase.from('session_map_points').delete().eq('id', pointId);
   if (error) throw error;
+}
+
+export async function updateSessionSuggestionStatus(pointId, progressStatus) {
+  if (!supabase) throw new Error('Supabase no está configurado');
+  const { data, error } = await supabase
+    .from('session_map_points')
+    .update({ progress_status: progressStatus })
+    .eq('id', pointId)
+    .select()
+    .single();
+  if (error) throw error;
+  return mapPoint(data);
 }
 
 export function subscribeToSessionPoints(requestId, onChange) {

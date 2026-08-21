@@ -730,8 +730,8 @@ textarea { resize: vertical; line-height: 1.5; }
 .sessionPanel { flex: 0 0 100%; width: 100%; min-width: 0; padding: 16px; opacity: .35; pointer-events: none; transition: opacity .18s ease; }
 .sessionPanel.active { opacity: 1; pointer-events: auto; }
 .sessionPanel > .card { height: 100%; margin: 0; box-shadow: none; }
-.sessionMapTools { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 10px; padding: 5px; background: #e8edf5; border-radius: 14px; }
-.sessionMapTools button { justify-content: center; min-width: 0; padding: 9px 6px; color: #526174; background: transparent; border-radius: 10px; font-size: 12px; }
+.sessionMapTools { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px; }
+.sessionMapTools button { justify-content: center; min-width: 0; min-height: 30px; padding: 5px 9px; color: #526174; background: #e8edf5; border-radius: 999px; font-size: 11px; }
 .sessionMapTools button:hover { transform: none; box-shadow: none; }
 .sessionMapTools button.active { color: #fff; background: var(--brand); box-shadow: 0 5px 14px rgba(37,99,235,.24); }
 .sessionMap { position: relative; height: clamp(390px, 58vh, 620px); overflow: hidden; background: #eef2f6; border-radius: 18px; }
@@ -739,6 +739,11 @@ textarea { resize: vertical; line-height: 1.5; }
 .sessionMapHint { position: absolute; z-index: 500; left: 50%; bottom: 14px; width: max-content; max-width: calc(100% - 28px); margin: 0; padding: 9px 13px; color: #fff; background: rgba(15,23,42,.82); border-radius: 999px; box-shadow: 0 8px 22px rgba(15,23,42,.2); font-size: 12px; font-weight: 800; transform: translateX(-50%); pointer-events: none; }
 .sessionPointMarker { display: grid; place-items: center; color: white; background: #ef4444; border: 3px solid white; border-radius: 50% 50% 50% 0; box-shadow: 0 5px 14px rgba(15,23,42,.3); font-weight: 950; transform: rotate(-45deg); }
 .sessionPointMarker span { transform: rotate(45deg); }
+.sessionPointMarker-in_progress { background: #7c3aed; box-shadow: 0 0 0 7px rgba(124,58,237,.18), 0 5px 14px rgba(15,23,42,.3); }
+.sessionPointMarker-completed { background: #16a34a; opacity: .72; }
+.suggestionStatus { display: inline-flex; width: fit-content; margin-top: 6px; padding: 4px 7px; color: #854d0e; background: #fef3c7; border-radius: 999px; font-size: 10px; font-weight: 900; text-transform: uppercase; }
+.suggestionStatus-in_progress { color: #5b21b6; background: #ede9fe; }
+.suggestionStatus-completed { color: #047857; background: #d1fae5; }
 .sessionPointError { margin: 10px 2px 0; color: #b91c1c; font-size: 13px; font-weight: 700; }
 .sessionPointDialogBackdrop { position: fixed; z-index: 2000; inset: 0; display: grid; place-items: center; padding: 20px; background: rgba(15,23,42,.56); backdrop-filter: blur(4px); }
 .sessionPointDialog { display: grid; gap: 14px; width: min(440px, 100%); padding: 22px; background: white; border-radius: 20px; box-shadow: 0 24px 70px rgba(15,23,42,.32); }
@@ -747,6 +752,22 @@ textarea { resize: vertical; line-height: 1.5; }
 .sessionPointDialogActions { display: flex; justify-content: flex-end; gap: 10px; }
 .sessionRouteActions { display: flex; justify-content: flex-end; gap: 8px; padding-top: 10px; }
 .sessionRouteActions button { min-width: 0; }
+.sessionSuggestionQueue { display: grid; gap: 10px; margin-top: 12px; }
+.sessionSuggestionQueueHeader { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.sessionSuggestionQueueHeader .stepLabel, .sessionSuggestionQueueHeader h4 { margin: 0; }
+.sessionSuggestionQueueHeader > span { display: grid; place-items: center; min-width: 28px; height: 28px; color: var(--brand); background: #eaf1ff; border-radius: 50%; font-weight: 900; }
+.sessionSuggestionList { display: grid; gap: 8px; }
+.sessionSuggestionCard { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 11px; background: #fff; border: 1px solid var(--line); border-radius: 14px; }
+.sessionSuggestionCard-in_progress { border-color: #c4b5fd; box-shadow: inset 3px 0 #7c3aed; }
+.sessionSuggestionCard-completed { opacity: .7; }
+.sessionSuggestionNumber { display: grid; place-items: center; width: 28px; height: 28px; color: #475569; background: #eef2f7; border-radius: 50%; font-size: 11px; font-weight: 900; }
+.sessionSuggestionBody { min-width: 0; }
+.sessionSuggestionTitleRow { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.sessionSuggestionTitleRow .suggestionStatus { flex: none; margin: 0; }
+.sessionSuggestionBody small { color: var(--muted); }
+.sessionSuggestionBody p { margin: 4px 0 0; color: #475569; font-size: 12px; }
+.sessionSuggestionCard > button { min-height: 32px; padding: 6px 10px; font-size: 11px; }
+.sessionSuggestionEmpty { margin: 0; padding: 14px; color: var(--muted); background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 12px; font-size: 13px; }
 .sessionSwipeHint { margin: 0; padding: 0 16px 14px; color: var(--muted); font-size: 12px; text-align: center; }
 .videoRoom.isBackground video { visibility: visible; }
 .chatPanel .chat { min-height: clamp(420px, 58vh, 620px); }
@@ -847,6 +868,9 @@ button:disabled { cursor: not-allowed; opacity: .55; box-shadow: none; }
 }
 
 @media (max-width: 560px) {
+  .sessionSuggestionCard { grid-template-columns: auto minmax(0, 1fr); }
+  .sessionSuggestionCard > button { grid-column: 1 / -1; justify-content: center; width: 100%; }
+  .sessionSuggestionTitleRow { align-items: flex-start; flex-direction: column; }
   .topbar { position: sticky; }
   .brand b { font-size: 15px; }
   .tabs { position: fixed; right: 12px; bottom: max(10px, env(safe-area-inset-bottom)); left: 12px; z-index: 1200; padding: 5px; box-shadow: 0 12px 40px rgba(15,23,42,.22); }

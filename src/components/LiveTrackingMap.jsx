@@ -35,12 +35,17 @@ const localIcon = new L.Icon({
   shadowSize: [41, 41],
 });
 
-const pointIcon = new L.DivIcon({
-  className: 'sessionPointMarker',
-  html: '<span aria-hidden="true">!</span>',
-  iconSize: [34, 34],
-  iconAnchor: [17, 17],
-});
+const pointIcons = new Map(
+  ['pending', 'in_progress', 'completed'].map(status => [
+    status,
+    new L.DivIcon({
+      className: `sessionPointMarker sessionPointMarker-${status}`,
+      html: '<span aria-hidden="true">!</span>',
+      iconSize: [34, 34],
+      iconAnchor: [17, 17],
+    }),
+  ])
+);
 
 const ignoreActivityStatus = () => {};
 
@@ -134,11 +139,14 @@ export default function LiveTrackingMap({
             {point.type === 'route' && point.route.length > 1 && (
               <Polyline positions={point.route.map(vertex => [vertex.lat, vertex.lng])} pathOptions={{ color: '#7c3aed', weight: 6, opacity: 0.82 }} />
             )}
-            <Marker position={[point.location.lat, point.location.lng]} icon={pointIcon}>
+            <Marker position={[point.location.lat, point.location.lng]} icon={pointIcons.get(point.progressStatus) || pointIcons.get('pending')}>
               <Popup>
                 <strong>{point.title || (point.type === 'route' ? `Ruta ${index + 1}` : `Punto ${index + 1}`)}</strong>
+                <span className={`suggestionStatus suggestionStatus-${point.progressStatus}`}>
+                  {point.progressStatus === 'in_progress' ? 'En curso' : point.progressStatus === 'completed' ? 'Finalizada' : 'Pendiente'}
+                </span>
                 <p>{point.instruction || (point.type === 'route' ? 'Sigue la ruta sugerida' : 'Dirígete a este punto')}</p>
-                {onDeletePoint && <button type="button" className="linkButton" onClick={() => onDeletePoint(point.id)}>Eliminar sugerencia</button>}
+                {onDeletePoint && point.progressStatus === 'pending' && <button type="button" className="linkButton" onClick={() => onDeletePoint(point.id)}>Eliminar sugerencia</button>}
               </Popup>
             </Marker>
           </React.Fragment>
