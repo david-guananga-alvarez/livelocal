@@ -711,6 +711,33 @@ textarea { resize: vertical; line-height: 1.5; }
 .status-completed, .status-available { color: #047857; background: #d1fae5; }
 .status-cancelled, .status-offline { color: #9f1239; background: #ffe4e6; }
 .emptyState, .emptyLocation { padding: 24px; color: var(--muted); background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 16px; text-align: center; }
+.stepLabel { margin: 18px 0 8px; color: var(--brand); font-size: 12px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
+.requestSummary { display: grid; gap: 6px; margin: 20px 0 14px; padding: 18px; background: #f4f7ff; border: 1px solid #dbe5ff; border-radius: 16px; }
+.requestSummary .stepLabel { margin: 0 0 4px; }
+.requestSummary span, .requestSummary small { color: var(--muted); }
+.serviceProgress { display: grid; grid-template-columns: repeat(6, minmax(60px, 1fr)); gap: 4px; margin: 18px 0; overflow-x: auto; }
+.serviceProgress div { position: relative; display: grid; justify-items: center; gap: 6px; min-width: 62px; color: #8b98aa; text-align: center; }
+.serviceProgress div::before { content: ''; position: absolute; top: 13px; left: -50%; width: 100%; height: 2px; background: #dce3ec; z-index: 0; }
+.serviceProgress div:first-child::before { display: none; }
+.serviceProgress span { position: relative; z-index: 1; width: 28px; height: 28px; display: grid; place-items: center; background: #eef2f6; border-radius: 50%; font-size: 12px; font-weight: 900; }
+.serviceProgress .done, .serviceProgress .current { color: var(--brand); }
+.serviceProgress .done::before, .serviceProgress .current::before { background: var(--brand); }
+.serviceProgress .done span, .serviceProgress .current span { color: white; background: var(--brand); }
+.serviceProgress .current span { outline: 4px solid rgba(36,87,230,.16); }
+.dialogBackdrop { position: fixed; inset: 0; z-index: 10000; display: grid; place-items: center; padding: 20px; background: rgba(5,15,32,.62); backdrop-filter: blur(4px); }
+.confirmDialog { width: min(440px, 100%); padding: 24px; background: white; border-radius: 20px; box-shadow: 0 24px 80px rgba(2,8,23,.35); }
+.confirmDialog p { color: var(--muted); }
+.dialogActions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+.toastRegion { position: fixed; top: 82px; right: 20px; z-index: 11000; width: min(420px, calc(100vw - 32px)); }
+.toast { display: flex; align-items: center; gap: 12px; padding: 14px 16px; color: white; background: #24344c; border-radius: 14px; box-shadow: 0 16px 40px rgba(2,8,23,.25); }
+.toast-success { background: #08745a; }
+.toast-error { background: #ad263f; }
+.toast button { min-height: 32px; padding: 4px 8px; color: inherit; background: rgba(255,255,255,.14); }
+.toastClose { margin-left: auto; }
+.skeletonList { display: grid; gap: 10px; }
+.skeletonList i { height: 58px; background: linear-gradient(90deg,#edf1f5 25%,#f8fafc 50%,#edf1f5 75%); background-size: 200% 100%; border-radius: 12px; animation: skeleton 1.2s infinite; }
+@keyframes skeleton { to { background-position: -200% 0; } }
+button:disabled { cursor: not-allowed; opacity: .55; box-shadow: none; }
 
 .loginPage { background: radial-gradient(circle at 20% 15%, rgba(73,112,240,.35), transparent 35%), linear-gradient(145deg, #071225, #102b59 62%, #244ed1); }
 .loginCard { width: min(520px,100%); padding: clamp(28px, 5vw, 44px); background: rgba(255,255,255,.11); border-color: rgba(255,255,255,.22); box-shadow: 0 35px 100px rgba(2,8,23,.42); }
@@ -745,4 +772,6 @@ textarea { resize: vertical; line-height: 1.5; }
   .locationPickerMap { height: 330px; }
   .formRow { gap: 12px; }
   .requestActions button, .locationActions button { width: 100%; justify-content: center; }
+  .toastRegion { top: 72px; right: 16px; }
+  .serviceProgress { margin-inline: -8px; }
 }

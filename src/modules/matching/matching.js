@@ -20,4 +20,4 @@ export function getMatchingLocals(
     .sort((a, b) => (a.distanceKm ?? 999) - (b.distanceKm ?? 999));
 }
 
-export function statusLabel(status){ return ({ searching:'Buscando local', pending:'Esperando aceptación', matched:'Local asignado', in_progress:'Sesión activa', completed:'Completado', cancelled:'Cancelado' })[status] || status; }
+export function statusLabel(status){ return ({ searching:'Buscando local', pending:'Esperando aceptación', matched:'Local asignado', on_the_way:'Local en camino', arrived:'Local en el destino', in_progress:'Sesión activa', completed:'Completado', cancelled:'Cancelado' })[status] || status; }

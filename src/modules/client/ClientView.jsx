@@ -24,6 +24,9 @@ import {
 
 import LocationPickerMap from '../../components/LocationPickerMap';
 import LiveTrackingMap from '../../components/LiveTrackingMap';
+import ServiceProgress from '../../components/ServiceProgress';
+import ConfirmDialog from '../../components/ConfirmDialog';
+import ToastRegion from '../../components/ToastRegion';
 
 import SessionWorkspace from '../session/SessionWorkspace';
 
@@ -51,6 +54,11 @@ export default function ClientView({
     useState(
       'Enséñame la zona en directo y responde dudas.'
     );
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [cancelTarget, setCancelTarget] = useState(null);
+  const [actionBusy, setActionBusy] = useState(false);
+  const [toast, setToast] = useState(null);
+  const notify = message => setToast({ message, type: 'error' });
 
   // --------------------------------------------------
   // REALTIME REQUESTS
@@ -250,8 +258,9 @@ export default function ClientView({
   // --------------------------------------------------
 
   async function requestNow() {
+    if (isSubmitting) return;
     if (!user?.id) {
-      alert(
+      notify(
         'Debes iniciar sesión para crear una petición'
       );
 
@@ -259,7 +268,7 @@ export default function ClientView({
     }
 
     if (!targetLocation || !targetAddress || targetAddress === 'Buscando dirección…') {
-      alert(
+      notify(
         'Selecciona el punto exacto de la solicitud'
       );
 
@@ -317,6 +326,7 @@ export default function ClientView({
         null,
     };
 
+    setIsSubmitting(true);
     try {
       await createRequest(
         request
@@ -330,15 +340,18 @@ export default function ClientView({
           request,
         ],
       }));
+      setToast({ message: 'Solicitud creada. Estamos buscando un local cercano.', type: 'success' });
     } catch (error) {
       console.error(
         'Error creando petición:',
         error
       );
 
-      alert(
+      notify(
         'No se pudo crear la petición'
       );
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
@@ -349,14 +362,7 @@ export default function ClientView({
   async function cancelRequest(
     request
   ) {
-    const confirmed =
-      window.confirm(
-        '¿Quieres cancelar esta solicitud?'
-      );
-
-    if (!confirmed) {
-      return;
-    }
+    setActionBusy(true);
 
     try {
       await updateRequestStatus(
@@ -380,15 +386,19 @@ export default function ClientView({
                 : current
           ),
       }));
+      setCancelTarget(null);
+      setToast({ message: 'Solicitud cancelada.', type: 'success' });
     } catch (error) {
       console.error(
         'Error cancelando solicitud:',
         error
       );
 
-      alert(
+      notify(
         'No se pudo cancelar la solicitud'
       );
+    } finally {
+      setActionBusy(false);
     }
   }
 
@@ -427,7 +437,7 @@ export default function ClientView({
         error
       );
 
-      alert(
+      notify(
         'No se pudo finalizar el servicio'
       );
     }
@@ -439,6 +449,8 @@ export default function ClientView({
 
   return (
     <div className="stack appView clientView">
+      <ToastRegion toast={toast} onDismiss={() => setToast(null)} />
+      <ConfirmDialog open={Boolean(cancelTarget)} title="Cancelar solicitud" message="¿Quieres cancelar esta solicitud? El local dejará de verla como activa." confirmLabel="Sí, cancelar" busy={actionBusy} onCancel={() => setCancelTarget(null)} onConfirm={() => cancelRequest(cancelTarget)} />
 
       <section className="hero clientHero">
         <p className="eyebrow">
@@ -537,6 +549,8 @@ export default function ClientView({
                       </div>
 
                     </div>
+
+                    <ServiceProgress status={request.status} />
 
                     {/* BODY */}
 
@@ -729,11 +743,7 @@ export default function ClientView({
 
                             <button
                               className="danger"
-                              onClick={() =>
-                                cancelRequest(
-                                  request
-                                )
-                              }
+                              onClick={() => setCancelTarget(request)}
                             >
                               Cancelar solicitud
                             </button>
@@ -812,6 +822,7 @@ export default function ClientView({
 
       <section className="card">
 
+        <p className="stepLabel">Paso 1 de 3 · Destino</p>
         <h2>
           ¿Dónde necesitas un local?
         </h2>
@@ -871,6 +882,7 @@ export default function ClientView({
 
         </div>
 
+        <p className="stepLabel">Paso 2 de 3 · Detalles</p>
         <div className="formRow">
 
           <label>
@@ -921,16 +933,24 @@ export default function ClientView({
 
         </div>
 
+        <div className="requestSummary" aria-label="Resumen de la solicitud">
+          <p className="stepLabel">Paso 3 de 3 · Confirmación</p>
+          <b>{targetAddress || 'Selecciona el destino en el mapa'}</b>
+          <span>{duration} min · {prices[duration]} €</span>
+          {notes && <small>{notes}</small>}
+        </div>
+
         <button
           className="primary big"
           onClick={requestNow}
+          disabled={isSubmitting || !targetLocation || !targetAddress}
         >
 
           <Search
             size={18}
           />
 
-          Pedir local ahora
+          {isSubmitting ? 'Creando solicitud…' : 'Pedir local ahora'}
 
         </button>
 

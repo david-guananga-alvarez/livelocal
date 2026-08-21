@@ -28,6 +28,9 @@ import {
 } from '../location/location';
 
 import LiveTrackingMap from '../../components/LiveTrackingMap';
+import ServiceProgress from '../../components/ServiceProgress';
+import ConfirmDialog from '../../components/ConfirmDialog';
+import ToastRegion from '../../components/ToastRegion';
 
 import SessionWorkspace from '../session/SessionWorkspace';
 
@@ -75,6 +78,10 @@ export default function LocalView({ state, setState }) {
 
   const [isOnline, setIsOnline] =
     useState(false);
+  const [cancelTarget, setCancelTarget] = useState(null);
+  const [actionBusy, setActionBusy] = useState(false);
+  const [toast, setToast] = useState(null);
+  const notify = message => setToast({ message, type: 'error' });
 
   const [
     onlineLoading,
@@ -268,6 +275,10 @@ export default function LocalView({ state, setState }) {
 
   useEffect(() => {
     async function loadLocalStatus() {
+      if (!supabase) {
+        setOnlineLoading(false);
+        return;
+      }
       if (!user?.id) {
         setOnlineLoading(false);
         return;
@@ -350,6 +361,7 @@ export default function LocalView({ state, setState }) {
 
   useEffect(() => {
     async function loadRequests() {
+      if (!supabase) return;
       try {
         const rows =
           await getRequests();
@@ -751,7 +763,7 @@ export default function LocalView({ state, setState }) {
         error
       );
 
-      alert(
+      notify(
         'No se pudo activar el modo Local'
       );
     } finally {
@@ -787,7 +799,7 @@ export default function LocalView({ state, setState }) {
         error
       );
 
-      alert(
+      notify(
         'No se pudo desconectar el Local'
       );
     } finally {
@@ -803,7 +815,7 @@ export default function LocalView({ state, setState }) {
     request
   ) {
     if (mine) {
-      alert(
+      notify(
         'Ya tienes un servicio activo'
       );
       return;
@@ -844,7 +856,7 @@ export default function LocalView({ state, setState }) {
         error
       );
 
-      alert(
+      notify(
         'No se pudo aceptar la petición'
       );
     }
@@ -886,7 +898,7 @@ export default function LocalView({ state, setState }) {
         error
       );
 
-      alert(
+      notify(
         'No se pudo iniciar el desplazamiento'
       );
     }
@@ -928,7 +940,7 @@ export default function LocalView({ state, setState }) {
         error
       );
 
-      alert(
+      notify(
         'No se pudo marcar la llegada'
       );
     }
@@ -941,14 +953,7 @@ export default function LocalView({ state, setState }) {
   async function cancelService(
     request
   ) {
-    const confirmed =
-      window.confirm(
-        '¿Quieres cancelar este servicio?'
-      );
-
-    if (!confirmed) {
-      return;
-    }
+    setActionBusy(true);
 
     try {
       await updateRequestStatus(
@@ -973,15 +978,19 @@ export default function LocalView({ state, setState }) {
                 : current
           ),
       }));
+      setCancelTarget(null);
+      setToast({ message: 'Servicio cancelado.', type: 'success' });
     } catch (error) {
       console.error(
         'Error cancelando servicio:',
         error
       );
 
-      alert(
+      notify(
         'No se pudo cancelar el servicio'
       );
+    } finally {
+      setActionBusy(false);
     }
   }
 
@@ -1021,7 +1030,7 @@ export default function LocalView({ state, setState }) {
         error
       );
 
-      alert(
+      notify(
         'No se pudo iniciar la sesión'
       );
     }
@@ -1088,6 +1097,8 @@ export default function LocalView({ state, setState }) {
   if (mine) {
     return (
       <div className="stack appView localView">
+        <ToastRegion toast={toast} onDismiss={() => setToast(null)} />
+        <ConfirmDialog open={Boolean(cancelTarget)} title="Cancelar servicio" message="¿Quieres cancelar este servicio activo?" confirmLabel="Sí, cancelar" busy={actionBusy} onCancel={() => setCancelTarget(null)} onConfirm={() => cancelService(cancelTarget)} />
 
         <section className="hero compact">
 
@@ -1109,6 +1120,7 @@ export default function LocalView({ state, setState }) {
               mine.distanceKm
             )}
           </p>
+          <ServiceProgress status={mine.status} />
 
           {isOnline &&
             local.location && (
@@ -1255,11 +1267,7 @@ export default function LocalView({ state, setState }) {
 
             <button
               className="danger"
-              onClick={() =>
-                cancelService(
-                  mine
-                )
-              }
+              onClick={() => setCancelTarget(mine)}
             >
               Cancelar servicio
             </button>
@@ -1290,6 +1298,7 @@ export default function LocalView({ state, setState }) {
 
   return (
     <div className="stack appView localView">
+      <ToastRegion toast={toast} onDismiss={() => setToast(null)} />
 
       <section className="hero compact">
 

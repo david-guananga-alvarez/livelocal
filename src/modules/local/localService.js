@@ -2,7 +2,7 @@ import { supabase } from '../auth/supabaseClient';
 
 export async function goOnline(userId, location = null) {
   if (!supabase) {
-    throw new Error('Supabase no está configurado');
+    return { user_id: userId, is_online: true, ...location };
   }
 
   const payload = {
@@ -29,7 +29,7 @@ export async function goOnline(userId, location = null) {
 
 export async function goOffline(userId) {
   if (!supabase) {
-    throw new Error('Supabase no está configurado');
+    return { user_id: userId, is_online: false };
   }
 
   const { data, error } = await supabase
@@ -54,7 +54,7 @@ export async function goOffline(userId) {
 
 export async function getLocalStatus(userId) {
   if (!supabase) {
-    throw new Error('Supabase no está configurado');
+    return null;
   }
 
   const { data, error } = await supabase
@@ -69,7 +69,7 @@ export async function getLocalStatus(userId) {
 }
 export async function updateLocalLocation(userId, location) {
   if (!supabase) {
-    throw new Error('Supabase no está configurado');
+    return { user_id: userId, ...location };
   }
 
   const { data, error } = await supabase
@@ -86,5 +86,11 @@ export async function updateLocalLocation(userId, location) {
 
   if (error) throw error;
 
+  return data;
+}
+export async function getLocals() {
+  if (!supabase) return [];
+  const { data, error } = await supabase.from('locals').select('*').order('updated_at', { ascending: false });
+  if (error) throw error;
   return data;
 }

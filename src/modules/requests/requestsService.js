@@ -2,7 +2,7 @@ import { supabase } from '../auth/supabaseClient';
 
 export async function createRequest(request) {
   if (!supabase) {
-    throw new Error('Supabase no está configurado');
+    return request;
   }
 
   const payload = {
@@ -33,7 +33,7 @@ export async function createRequest(request) {
 
 export async function getRequests() {
   if (!supabase) {
-    throw new Error('Supabase no está configurado');
+    return [];
   }
 
   const { data, error } = await supabase
@@ -50,7 +50,7 @@ export async function getRequests() {
 
 export async function acceptRequest(requestId, localId) {
   if (!supabase) {
-    throw new Error('Supabase no está configurado');
+    return { id: requestId, local_id: localId, status: 'matched' };
   }
 
   const { data, error } = await supabase
@@ -70,7 +70,7 @@ export async function acceptRequest(requestId, localId) {
 
 export async function updateRequestStatus(requestId, status) {
   if (!supabase) {
-    throw new Error('Supabase no está configurado');
+    return { id: requestId, status };
   }
 
   const { data, error } = await supabase

@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { supabase, hasSupabaseConfig } from './supabaseClient';
+import { getProfile } from './profileService';
 
 const MOCK_KEY = 'livelocal-auth-mock-user';
 const AuthContext = createContext(null);
@@ -11,6 +12,19 @@ function loadMockUser(){
 export function AuthProvider({ children }){
   const [user, setUser] = useState(() => hasSupabaseConfig ? null : loadMockUser());
   const [loading, setLoading] = useState(Boolean(hasSupabaseConfig));
+  const [profile, setProfile] = useState(hasSupabaseConfig ? null : { role: 'demo' });
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [profileError, setProfileError] = useState(null);
+
+  const reloadProfile = useCallback(async (nextUser = user) => {
+    if(!hasSupabaseConfig){ setProfile({ role: 'demo' }); return; }
+    if(!nextUser?.id){ setProfile(null); setProfileError(null); return; }
+    setProfileLoading(true);
+    setProfileError(null);
+    try { setProfile(await getProfile(nextUser.id)); }
+    catch(error){ setProfile(null); setProfileError(error?.message || 'No se pudo cargar tu perfil'); }
+    finally { setProfileLoading(false); }
+  }, [user]);
 
   useEffect(() => {
     if(!hasSupabaseConfig || !supabase){ setLoading(false); return; }
@@ -18,11 +32,13 @@ export function AuthProvider({ children }){
     supabase.auth.getSession().then(({ data }) => {
       setUser(data.session?.user ?? null);
       setLoading(false);
+      reloadProfile(data.session?.user ?? null);
     });
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
       setLoading(false);
+      reloadProfile(session?.user ?? null);
     });
 
     return () => listener?.subscription?.unsubscribe?.();
@@ -50,16 +66,19 @@ export function AuthProvider({ children }){
     };
     localStorage.setItem(MOCK_KEY, JSON.stringify(mockUser));
     setUser(mockUser);
+    setProfile({ id: mockUser.id, role: 'demo', full_name: 'David Demo' });
   }
 
   async function signOut(){
     if(hasSupabaseConfig && supabase){
       await supabase.auth.signOut();
       setUser(null);
+      setProfile(null);
       return;
     }
     localStorage.removeItem(MOCK_KEY);
     setUser(null);
+    setProfile({ role: 'demo' });
   }
 
   const value = useMemo(() => ({
@@ -67,9 +86,14 @@ export function AuthProvider({ children }){
     loading,
     isAuthenticated: Boolean(user),
     hasSupabaseConfig,
+    profile,
+    role: profile?.role ?? null,
+    profileLoading,
+    profileError,
+    reloadProfile,
     signInWithGoogle,
     signOut,
-  }), [user, loading]);
+  }), [user, loading, profile, profileLoading, profileError, reloadProfile]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
