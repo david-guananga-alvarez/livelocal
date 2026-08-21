@@ -29,7 +29,7 @@ const iceServers = [
         credential: "zoO5z6FSSNc+Dz/S",
       },
   ];
-export default function WebRTCRoom({ roomId, role }) {
+export default function WebRTCRoom({ roomId, role, isActive = true }) {
   const { user } = useAuth();
 
   const localVideo = useRef(null);
@@ -572,7 +572,7 @@ export default function WebRTCRoom({ roomId, role }) {
   // -------------------------
 
   return (
-    <section className="card videoRoom">
+    <section className={`card videoRoom ${isActive ? 'isActive' : 'isBackground'}`} aria-label="Cámara de la sesión">
       <div className="sectionHeader">
         <div>
           <h3>

@@ -1,6 +1,7 @@
 import React, {
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 
@@ -17,6 +18,8 @@ import {
 export default function ChatPanel({
   requestId,
   sender,
+  isActive = true,
+  onUnread,
 }) {
   const { user } = useAuth();
 
@@ -31,6 +34,13 @@ export default function ChatPanel({
 
   const [sending, setSending] =
     useState(false);
+  const isActiveRef = useRef(isActive);
+  const onUnreadRef = useRef(onUnread);
+
+  useEffect(() => {
+    isActiveRef.current = isActive;
+    onUnreadRef.current = onUnread;
+  }, [isActive, onUnread]);
 
   // --------------------------------------------------
   // CARGAR HISTORIAL
@@ -144,6 +154,10 @@ export default function ChatPanel({
                 row.created_at,
             };
 
+            if (row.sender_id !== user?.id && !isActiveRef.current) {
+              onUnreadRef.current?.();
+            }
+
             setMessages(prev => {
               // Evitar duplicados si
               // el mensaje local llega
@@ -173,7 +187,7 @@ export default function ChatPanel({
         channel
       );
     };
-  }, [requestId]);
+  }, [requestId, user?.id]);
 
   // --------------------------------------------------
   // ORDENAR MENSAJES
@@ -294,7 +308,7 @@ export default function ChatPanel({
   // --------------------------------------------------
 
   return (
-    <section className="card chat">
+    <section className={`card chat ${isActive ? 'isActive' : 'isBackground'}`} aria-label="Chat de la sesión">
 
       <h3>
         Chat de sesión
