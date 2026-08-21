@@ -694,6 +694,20 @@ textarea { resize: vertical; line-height: 1.5; }
 .workspace { align-items: start; }
 .videoRoom, .chat, .liveLocationCard { box-shadow: 0 14px 36px rgba(15,23,42,.08); }
 .videoGrid div { min-height: 300px; border: 1px solid #263449; }
+.callActions, .videoViewSwitch { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.callActions .secondary, .videoViewSwitch .secondary { color: var(--ink); background: #eef2f7; }
+.videoViewSwitch { margin: 14px 0 10px; }
+.videoViewSwitch button { flex: 1; justify-content: center; }
+.videoGrid { position: relative; grid-template-columns: 1fr; min-height: 440px; }
+.videoGrid .videoTile { min-height: 440px; transition: width .2s ease, height .2s ease, transform .2s ease; }
+.videoGrid .videoTile video { min-height: 440px; }
+.videoGrid.focus-remote .localVideo, .videoGrid.focus-local .remoteVideo { position: absolute; right: 14px; bottom: 14px; z-index: 3; width: clamp(115px, 24%, 190px); min-height: 125px; border: 2px solid white; box-shadow: 0 12px 32px rgba(0,0,0,.32); }
+.videoGrid.focus-remote .localVideo video, .videoGrid.focus-local .remoteVideo video { min-height: 125px; height: 125px; }
+.videoGrid.focus-remote .localVideo span, .videoGrid.focus-local .remoteVideo span { display: none; }
+.videoFocusButton { position: absolute; inset: 0; z-index: 4; width: 100%; justify-content: center; color: transparent; background: transparent; border-radius: inherit; }
+.videoFocusButton:hover { color: white; background: rgba(0,0,0,.38); }
+.remoteWaiting { position: absolute !important; inset: 0; z-index: 2; display: flex !important; flex-direction: column; align-items: center; justify-content: center; gap: 8px !important; min-height: 0 !important; padding: 24px; color: white; background: #111c2f; text-align: center; }
+.remoteWaiting small { max-width: 320px; color: #aebdd1; }
 .chatBox { background: #f3f6fa; }
 .bubble { border-radius: 15px 15px 15px 5px; box-shadow: 0 3px 10px rgba(15,23,42,.05); }
 .bubble.me { border-radius: 15px 15px 5px 15px; }
@@ -850,7 +864,11 @@ button:disabled { cursor: not-allowed; opacity: .55; box-shadow: none; }
   .sessionPanel { padding: 10px; }
   .sessionMap, .cameraPanel .videoRoom, .chatPanel .chat { min-height: 460px; height: min(62vh, 560px); }
   .cameraPanel .videoGrid { grid-template-columns: 1fr; }
-  .cameraPanel .videoGrid div, .cameraPanel .videoGrid video { min-height: 185px; }
+  .cameraPanel .videoGrid, .cameraPanel .videoGrid .videoTile, .cameraPanel .videoGrid .videoTile video { min-height: 390px; }
+  .cameraPanel .videoGrid.focus-remote .localVideo, .cameraPanel .videoGrid.focus-local .remoteVideo { min-height: 105px; width: 112px; }
+  .cameraPanel .videoGrid.focus-remote .localVideo video, .cameraPanel .videoGrid.focus-local .remoteVideo video { min-height: 105px; height: 105px; }
+  .callActions { width: 100%; }
+  .callActions button { flex: 1; justify-content: center; }
   .cameraPanel .hint { display: none; }
   .chatPanel .chatBox { max-height: none; }
 }

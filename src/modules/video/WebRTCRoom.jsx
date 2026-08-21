@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Camera, Mic, PhoneOff } from 'lucide-react';
+import { Camera, Mic, PhoneOff, SwitchCamera } from 'lucide-react';
 
 import { supabase } from '../auth/supabaseClient';
 import { useAuth } from '../auth/AuthProvider';
@@ -37,6 +37,7 @@ export default function WebRTCRoom({ roomId, role, isActive = true }) {
 
   const pcRef = useRef(null);
   const channelRef = useRef(null);
+  const localStreamRef = useRef(null);
 
   const pendingIceRef = useRef([]);
   const offerSentRef = useRef(false);
@@ -44,6 +45,11 @@ export default function WebRTCRoom({ roomId, role, isActive = true }) {
   const [started, setStarted] = useState(false);
   const [error, setError] = useState('');
   const [status, setStatus] = useState('Sala lista');
+  const [remoteAvailable, setRemoteAvailable] = useState(false);
+  const [activeView, setActiveView] = useState('remote');
+  const [videoDevices, setVideoDevices] = useState([]);
+  const [activeDeviceId, setActiveDeviceId] = useState('');
+  const [switchingCamera, setSwitchingCamera] = useState(false);
 
   useEffect(() => {
     return () => {
@@ -187,10 +193,22 @@ export default function WebRTCRoom({ roomId, role, isActive = true }) {
       const stream =
         await navigator.mediaDevices.getUserMedia(
           {
-            video: true,
+            video: {
+              facingMode: {
+                ideal: 'user',
+              },
+            },
             audio: true,
           }
         );
+
+      localStreamRef.current = stream;
+
+      const currentVideoTrack = stream.getVideoTracks()[0];
+      setActiveDeviceId(currentVideoTrack?.getSettings().deviceId || '');
+
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      setVideoDevices(devices.filter(device => device.kind === 'videoinput'));
 
       if (localVideo.current) {
         localVideo.current.srcObject =
@@ -248,6 +266,14 @@ export default function WebRTCRoom({ roomId, role, isActive = true }) {
         if (remoteVideo.current) {
           remoteVideo.current.srcObject =
             event.streams[0];
+        }
+
+        const remoteTrack = event.track;
+        if (remoteTrack.kind === 'video') {
+          setRemoteAvailable(true);
+          remoteTrack.onunmute = () => setRemoteAvailable(true);
+          remoteTrack.onmute = () => setRemoteAvailable(false);
+          remoteTrack.onended = () => setRemoteAvailable(false);
         }
 
         setStatus(
@@ -520,6 +546,51 @@ export default function WebRTCRoom({ roomId, role, isActive = true }) {
     });
   }
 
+  async function switchCamera() {
+    if (switchingCamera || videoDevices.length < 2 || !pcRef.current) return;
+
+    const currentIndex = videoDevices.findIndex(device => device.deviceId === activeDeviceId);
+    const nextDevice = videoDevices[(currentIndex + 1 + videoDevices.length) % videoDevices.length];
+    if (!nextDevice) return;
+
+    let replacementStream;
+    try {
+      setSwitchingCamera(true);
+      setError('');
+      replacementStream = await navigator.mediaDevices.getUserMedia({
+        video: { deviceId: { exact: nextDevice.deviceId } },
+        audio: false,
+      });
+
+      const nextTrack = replacementStream.getVideoTracks()[0];
+      const sender = pcRef.current
+        .getSenders()
+        .find(item => item.track?.kind === 'video');
+
+      if (!nextTrack || !sender) {
+        throw new Error('No se pudo preparar la otra cámara');
+      }
+
+      await sender.replaceTrack(nextTrack);
+
+      const previousStream = localStreamRef.current;
+      const audioTracks = previousStream?.getAudioTracks() || [];
+      previousStream?.getVideoTracks().forEach(track => track.stop());
+
+      const updatedStream = new MediaStream([...audioTracks, nextTrack]);
+      localStreamRef.current = updatedStream;
+      if (localVideo.current) localVideo.current.srcObject = updatedStream;
+      setActiveDeviceId(nextTrack.getSettings().deviceId || nextDevice.deviceId);
+      setStatus('Cámara cambiada sin interrumpir la llamada');
+    } catch (cameraError) {
+      replacementStream?.getTracks().forEach(track => track.stop());
+      console.error('Error cambiando de cámara:', cameraError);
+      setError(cameraError?.message || 'No se pudo cambiar de cámara');
+    } finally {
+      setSwitchingCamera(false);
+    }
+  }
+
   // -------------------------
   // COLGAR
   // -------------------------
@@ -562,8 +633,12 @@ export default function WebRTCRoom({ roomId, role, isActive = true }) {
 
     pendingIceRef.current = [];
     offerSentRef.current = false;
+    localStreamRef.current = null;
 
     setStarted(false);
+    setRemoteAvailable(false);
+    setVideoDevices([]);
+    setActiveDeviceId('');
     setStatus('Sala detenida');
   }
 
@@ -587,6 +662,11 @@ export default function WebRTCRoom({ roomId, role, isActive = true }) {
         </div>
 
         {started ? (
+          <div className="callActions">
+          {videoDevices.length > 1 && <button type="button" className="secondary" onClick={switchCamera} disabled={switchingCamera}>
+            <SwitchCamera size={16} />
+            {switchingCamera ? 'Cambiando…' : 'Cambiar cámara'}
+          </button>}
           <button
             className="danger"
             onClick={stopCall}
@@ -594,6 +674,7 @@ export default function WebRTCRoom({ roomId, role, isActive = true }) {
             <PhoneOff size={16} />
             Colgar
           </button>
+          </div>
         ) : (
           <button
             onClick={startCall}
@@ -604,8 +685,17 @@ export default function WebRTCRoom({ roomId, role, isActive = true }) {
         )}
       </div>
 
-      <div className="videoGrid">
-        <div>
+      {started && <div className="videoViewSwitch" role="group" aria-label="Vídeo principal">
+        <button type="button" className={activeView === 'remote' ? 'active' : 'secondary'} onClick={() => setActiveView('remote')}>
+          Ver {role === 'Local' ? 'Cliente' : 'Local'}
+        </button>
+        <button type="button" className={activeView === 'local' ? 'active' : 'secondary'} onClick={() => setActiveView('local')}>
+          Ver mi cámara
+        </button>
+      </div>}
+
+      <div className={`videoGrid focus-${activeView}`}>
+        <div className="videoTile localVideo">
           <video
             ref={localVideo}
             autoPlay
@@ -616,9 +706,10 @@ export default function WebRTCRoom({ roomId, role, isActive = true }) {
           <span>
             Tú ({role})
           </span>
+          {activeView !== 'local' && <button type="button" className="videoFocusButton" onClick={() => setActiveView('local')}>Ver en grande</button>}
         </div>
 
-        <div>
+        <div className="videoTile remoteVideo">
           <video
             ref={remoteVideo}
             autoPlay
@@ -626,8 +717,10 @@ export default function WebRTCRoom({ roomId, role, isActive = true }) {
           />
 
           <span>
-            Otra persona
+            {role === 'Local' ? 'Cliente' : 'Local'}
           </span>
+          {!remoteAvailable && <div className="remoteWaiting"><Camera size={22} /><b>Esperando la cámara del {role === 'Local' ? 'Cliente' : 'Local'}</b><small>La otra persona debe entrar en la sala y permitir su cámara.</small></div>}
+          {activeView !== 'remote' && <button type="button" className="videoFocusButton" onClick={() => setActiveView('remote')}>Ver en grande</button>}
         </div>
       </div>
 
