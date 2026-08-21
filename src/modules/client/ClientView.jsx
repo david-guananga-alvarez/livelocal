@@ -757,7 +757,7 @@ export default function ClientView({
 
                       {/* RIGHT COLUMN - MAP */}
 
-                      {showLiveTracking && (
+                      {showLiveTracking && request.status !== 'in_progress' && (
 
                         <div className="activeRequestMap">
 

@@ -1153,7 +1153,8 @@ export default function LocalView({ state, setState }) {
 
           {/* MAPA DEL LOCAL */}
 
-          {isOnline &&
+          {mine.status !== 'in_progress' &&
+            isOnline &&
             local.location && (
 
               <div
