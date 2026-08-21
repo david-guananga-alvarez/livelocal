@@ -604,6 +604,7 @@ button:disabled { opacity: .55; cursor: not-allowed; transform: none; box-shadow
   padding: 0;
   box-shadow: 0 8px 18px rgba(36,87,230,.25);
 }
+.brand .brandMark svg { color: white; }
 .brandCity { color: #53647a !important; background: #eef3ff !important; }
 .tabs { padding: 4px; background: #edf2f8; border-radius: 16px; }
 .tabs button { padding: 9px 15px; color: #526176; background: transparent; border-radius: 12px; }
