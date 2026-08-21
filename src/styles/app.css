@@ -712,7 +712,7 @@ textarea { resize: vertical; line-height: 1.5; }
 .sessionTabs button.active { color: var(--brand); background: #eaf1ff; box-shadow: inset 0 0 0 1px #d5e2ff; }
 .unreadDot { position: absolute; top: 9px; left: calc(50% + 25px); width: 8px; height: 8px; background: #ef4444; border: 2px solid white; border-radius: 50%; }
 .sessionViewport { width: 100%; overflow: hidden; touch-action: pan-y; }
-.sessionTrack { display: flex; align-items: stretch; width: 100%; transition: transform .2s cubic-bezier(.2,.75,.3,1); will-change: transform; }
+.sessionTrack, .requestCard .sessionTrack { display: flex; grid-template-columns: none; align-items: stretch; gap: 0; width: 100%; transition: transform .2s cubic-bezier(.2,.75,.3,1); will-change: transform; }
 .sessionPanel { flex: 0 0 100%; width: 100%; min-width: 0; padding: 16px; opacity: .35; pointer-events: none; transition: opacity .18s ease; }
 .sessionPanel.active { opacity: 1; pointer-events: auto; }
 .sessionPanel > .card { height: 100%; margin: 0; box-shadow: none; }
