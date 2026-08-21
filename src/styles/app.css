@@ -730,8 +730,17 @@ textarea { resize: vertical; line-height: 1.5; }
 .sessionPanel { flex: 0 0 100%; width: 100%; min-width: 0; padding: 16px; opacity: .35; pointer-events: none; transition: opacity .18s ease; }
 .sessionPanel.active { opacity: 1; pointer-events: auto; }
 .sessionPanel > .card { height: 100%; margin: 0; box-shadow: none; }
-.sessionMap { height: clamp(390px, 58vh, 620px); overflow: hidden; background: #eef2f6; border-radius: 18px; }
+.sessionMap { position: relative; height: clamp(390px, 58vh, 620px); overflow: hidden; background: #eef2f6; border-radius: 18px; }
 .sessionMap .leaflet-container { min-height: 100% !important; }
+.sessionMapHint { position: absolute; z-index: 500; left: 50%; bottom: 14px; width: max-content; max-width: calc(100% - 28px); margin: 0; padding: 9px 13px; color: #fff; background: rgba(15,23,42,.82); border-radius: 999px; box-shadow: 0 8px 22px rgba(15,23,42,.2); font-size: 12px; font-weight: 800; transform: translateX(-50%); pointer-events: none; }
+.sessionPointMarker { display: grid; place-items: center; color: white; background: #ef4444; border: 3px solid white; border-radius: 50% 50% 50% 0; box-shadow: 0 5px 14px rgba(15,23,42,.3); font-weight: 950; transform: rotate(-45deg); }
+.sessionPointMarker span { transform: rotate(45deg); }
+.sessionPointError { margin: 10px 2px 0; color: #b91c1c; font-size: 13px; font-weight: 700; }
+.sessionPointDialogBackdrop { position: fixed; z-index: 2000; inset: 0; display: grid; place-items: center; padding: 20px; background: rgba(15,23,42,.56); backdrop-filter: blur(4px); }
+.sessionPointDialog { display: grid; gap: 14px; width: min(440px, 100%); padding: 22px; background: white; border-radius: 20px; box-shadow: 0 24px 70px rgba(15,23,42,.32); }
+.sessionPointDialog .stepLabel, .sessionPointDialog h3 { margin: 0; }
+.sessionPointDialog textarea { width: 100%; resize: vertical; }
+.sessionPointDialogActions { display: flex; justify-content: flex-end; gap: 10px; }
 .sessionSwipeHint { margin: 0; padding: 0 16px 14px; color: var(--muted); font-size: 12px; text-align: center; }
 .videoRoom.isBackground video { visibility: visible; }
 .chatPanel .chat { min-height: clamp(420px, 58vh, 620px); }

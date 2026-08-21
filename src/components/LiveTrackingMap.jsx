@@ -5,6 +5,7 @@ import {
   TileLayer,
   Marker,
   Popup,
+  useMapEvents,
 } from 'react-leaflet';
 
 import L from 'leaflet';
@@ -31,29 +32,44 @@ const localIcon = new L.Icon({
   shadowSize: [41, 41],
 });
 
+const pointIcon = new L.DivIcon({
+  className: 'sessionPointMarker',
+  html: '<span aria-hidden="true">!</span>',
+  iconSize: [34, 34],
+  iconAnchor: [17, 17],
+});
+
+function MapClickHandler({ enabled, onSelect }) {
+  useMapEvents({
+    click(event) {
+      if (enabled) onSelect?.({ lat: event.latlng.lat, lng: event.latlng.lng });
+    },
+  });
+  return null;
+}
+
 export default function LiveTrackingMap({
   localLocation,
+  targetLocation,
+  sessionPoints = [],
+  canAddPoint = false,
+  onPointSelected,
+  onDeletePoint,
 }) {
-  if (
-    !localLocation ||
-    !Number.isFinite(
-      Number(localLocation.lat)
-    ) ||
-    !Number.isFinite(
-      Number(localLocation.lng)
-    )
-  ) {
+  const validLocation = location => location && Number.isFinite(Number(location.lat)) && Number.isFinite(Number(location.lng));
+  const centerLocation = validLocation(localLocation)
+    ? localLocation
+    : sessionPoints.find(point => validLocation(point.location))?.location || targetLocation;
+
+  if (!validLocation(centerLocation)) {
     return (
       <div className="emptyLocation">
-        Esperando ubicación del Local...
+        Esperando una ubicación para mostrar el mapa...
       </div>
     );
   }
 
-  const position = [
-    Number(localLocation.lat),
-    Number(localLocation.lng),
-  ];
+  const position = [Number(centerLocation.lat), Number(centerLocation.lng)];
 
   return (
     <div
@@ -72,19 +88,26 @@ export default function LiveTrackingMap({
           minHeight: '440px',
         }}
       >
+        <MapClickHandler enabled={canAddPoint} onSelect={onPointSelected} />
         <TileLayer
           attribution="&copy; OpenStreetMap contributors"
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
 
-        <Marker
-          position={position}
-          icon={localIcon}
-        >
-          <Popup>
-            Local en directo
-          </Popup>
-        </Marker>
+        {validLocation(localLocation) && (
+          <Marker position={[Number(localLocation.lat), Number(localLocation.lng)]} icon={localIcon}>
+            <Popup>Local en directo</Popup>
+          </Marker>
+        )}
+        {sessionPoints.map((point, index) => (
+          <Marker key={point.id} position={[point.location.lat, point.location.lng]} icon={pointIcon}>
+            <Popup>
+              <strong>Punto {index + 1}</strong>
+              <p>{point.instruction || 'Dirígete a este punto'}</p>
+              {onDeletePoint && <button type="button" className="linkButton" onClick={() => onDeletePoint(point.id)}>Eliminar punto</button>}
+            </Popup>
+          </Marker>
+        ))}
       </MapContainer>
     </div>
   );
