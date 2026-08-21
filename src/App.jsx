@@ -13,6 +13,8 @@ export default function App(){
  const stateKey = useMemo(() => storageKeyFor(userId), [userId]);
  const [state,setStateRaw]=useState(()=>loadState(userId));
  const [tab,setTab]=useState('client');
+ const activeRole = tab;
+ const canAccessAdmin = !hasSupabaseConfig || role === 'admin';
 
  useEffect(()=>{ if(isAuthenticated) setStateRaw(loadState(userId)); }, [isAuthenticated, userId]);
 
@@ -35,21 +37,23 @@ export default function App(){
    return ()=>window.removeEventListener('storage', onStorage);
  },[stateKey]);
 
+ useEffect(()=>{
+   if(tab === 'admin' && !canAccessAdmin) setTab('client');
+ }, [tab, canAccessAdmin]);
+
  if(loading) return <main className="loadingScreen"><div className="spinner"></div><p>Cargando sesión...</p></main>;
  if(!isAuthenticated) return <LoginScreen/>;
  if(profileLoading) return <main className="loadingScreen"><div className="spinner"></div><p>Preparando tu experiencia...</p></main>;
  if(hasSupabaseConfig && profileError) return <main className="loadingScreen profileError"><h1>No hemos podido abrir tu perfil</h1><p>{profileError}</p><div className="dialogActions"><button onClick={()=>reloadProfile()}>Reintentar</button><button className="secondary" onClick={signOut}>Cerrar sesión</button></div></main>;
 
- const activeRole = hasSupabaseConfig ? role : tab;
-
  return <main className="appShell">
    <nav className="topbar" aria-label="Navegación principal">
      <div className="brand"><span className="brandMark"><Eye size={19}/></span><b>LiveLocal</b><span className="brandCity">Barcelona</span></div>
-     {!hasSupabaseConfig && <div className="tabs" role="tablist" aria-label="Modo de uso">
+     <div className="tabs" role="tablist" aria-label="Modo de uso">
        <button role="tab" aria-selected={tab==='client'} className={tab==='client'?'active':''} onClick={()=>setTab('client')}><User size={16}/> Cliente</button>
        <button role="tab" aria-selected={tab==='local'} className={tab==='local'?'active':''} onClick={()=>setTab('local')}><MapPinned size={16}/> Local</button>
-       <button role="tab" aria-selected={tab==='admin'} className={tab==='admin'?'active':''} onClick={()=>setTab('admin')}><Shield size={16}/> Admin</button>
-     </div>}
+       {canAccessAdmin && <button role="tab" aria-selected={tab==='admin'} className={tab==='admin'?'active':''} onClick={()=>setTab('admin')}><Shield size={16}/> Admin</button>}
+     </div>
      <UserMenu/>
    </nav>
    <div className="appContent">{activeRole==='client'&&<ClientView state={state} setState={setState}/>} {activeRole==='local'&&<LocalView state={state} setState={setState}/>} {activeRole==='admin'&&<AdminView state={state} setState={setState}/>}</div>
