@@ -1300,22 +1300,18 @@ export default function LocalView({ state, setState }) {
     <div className="stack appView localView">
       <ToastRegion toast={toast} onDismiss={() => setToast(null)} />
 
-      <section className="hero compact">
+      <section className={`hero compact localAvailability ${isOnline ? 'isOnline' : 'isOffline'}`}>
 
         <p className="eyebrow">
-          Local
+          Tu disponibilidad
         </p>
 
         <h1>
-          {local.name}
+          {isOnline ? 'Estás disponible' : 'Empieza cuando quieras'}
         </h1>
 
         <p>
-          Zonas:{' '}
-          {local.zones.join(
-            ', '
-          )}{' '}
-          · ⭐ {local.rating}
+          {isOnline ? 'Recibirás solicitudes cercanas en tiempo real.' : 'Conéctate para recibir solicitudes cerca de ti.'}
         </p>
 
         {onlineLoading ? (
@@ -1326,14 +1322,14 @@ export default function LocalView({ state, setState }) {
 
         ) : isOnline ? (
 
-          <div className="stack">
+          <div className="localStatusPanel">
 
-            <p className="statusLine">
-              🟢 Estás ONLINE
+            <p className="statusLine availabilityBadge">
+              <span /> Disponible
             </p>
 
-            <button
-              className="danger"
+            <div className="localStatusActions"><button
+              className="secondary"
               onClick={
                 handleGoOffline
               }
@@ -1351,7 +1347,7 @@ export default function LocalView({ state, setState }) {
               />
 
               Actualizar ubicación
-            </button>
+            </button></div>
 
             {geoStatus && (
               <small>
@@ -1399,10 +1395,10 @@ export default function LocalView({ state, setState }) {
 
         ) : (
 
-          <div className="stack">
+          <div className="localStatusPanel">
 
-            <p className="statusLine">
-              ⚪ Estás OFFLINE
+            <p className="statusLine availabilityBadge offline">
+              <span /> No disponible
             </p>
 
             <button
@@ -1415,7 +1411,7 @@ export default function LocalView({ state, setState }) {
                 size={16}
               />
 
-              Conectarme como Local
+              Empezar a recibir solicitudes
             </button>
 
           </div>
@@ -1427,9 +1423,7 @@ export default function LocalView({ state, setState }) {
 
         <section className="card">
 
-          <h2>
-            Solicitudes entrantes
-          </h2>
+          <div className="sectionHeader"><div><p className="stepLabel">Cerca de ti</p><h2>Solicitudes disponibles</h2></div><span className="requestCount">{incoming.length}</span></div>
 
           {incoming.length ===
           0 ? (
@@ -1441,11 +1435,11 @@ export default function LocalView({ state, setState }) {
 
           ) : (
 
-            incoming.map(
+            <div className="incomingList">{incoming.map(
               request => (
 
-                <div
-                  className="requestCard"
+                <article
+                  className="requestCard incomingRequest"
                   key={request.id}
                 >
 
@@ -1474,7 +1468,7 @@ export default function LocalView({ state, setState }) {
 
                   </div>
 
-                  <button
+                  <button className="primary"
                     onClick={() =>
                       accept(
                         request
@@ -1488,9 +1482,9 @@ export default function LocalView({ state, setState }) {
                     Aceptar
                   </button>
 
-                </div>
+                </article>
               )
-            )
+            )}</div>
           )}
 
         </section>

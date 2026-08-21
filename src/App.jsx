@@ -48,14 +48,14 @@ export default function App(){
 
  return <main className="appShell">
    <nav className="topbar" aria-label="Navegación principal">
-     <div className="brand"><span className="brandMark"><Eye size={19}/></span><b>LiveLocal</b><span className="brandCity">Barcelona</span></div>
-     <div className="tabs" role="tablist" aria-label="Modo de uso">
-       <button role="tab" aria-selected={tab==='client'} className={tab==='client'?'active':''} onClick={()=>setTab('client')}><User size={16}/> Cliente</button>
-       <button role="tab" aria-selected={tab==='local'} className={tab==='local'?'active':''} onClick={()=>setTab('local')}><MapPinned size={16}/> Local</button>
-       {canAccessAdmin && <button role="tab" aria-selected={tab==='admin'} className={tab==='admin'?'active':''} onClick={()=>setTab('admin')}><Shield size={16}/> Admin</button>}
+     <div className="brand"><span className="brandMark"><Eye size={19}/></span><span className="brandCopy"><b>LiveLocal</b><small>Barcelona</small></span></div>
+     <div className="tabs" role="tablist" aria-label="Elige cómo quieres usar LiveLocal">
+       <button type="button" role="tab" aria-selected={tab==='client'} className={tab==='client'?'active':''} onClick={()=>setTab('client')}><User size={17}/><span>Necesito un Local</span></button>
+       <button type="button" role="tab" aria-selected={tab==='local'} className={tab==='local'?'active':''} onClick={()=>setTab('local')}><MapPinned size={17}/><span>Quiero ser Local</span></button>
+       {canAccessAdmin && <button type="button" role="tab" aria-selected={tab==='admin'} className={tab==='admin'?'active':''} onClick={()=>setTab('admin')}><Shield size={17}/><span>Admin</span></button>}
      </div>
      <UserMenu/>
    </nav>
-   <div className="appContent">{activeRole==='client'&&<ClientView state={state} setState={setState}/>} {activeRole==='local'&&<LocalView state={state} setState={setState}/>} {activeRole==='admin'&&<AdminView state={state} setState={setState}/>}</div>
+   <div className="appContent" key={activeRole}>{activeRole==='client'&&<ClientView state={state} setState={setState}/>} {activeRole==='local'&&<LocalView state={state} setState={setState}/>} {activeRole==='admin'&&<AdminView state={state} setState={setState}/>}</div>
  </main>;
 }

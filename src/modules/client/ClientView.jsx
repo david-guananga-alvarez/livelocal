@@ -55,6 +55,7 @@ export default function ClientView({
       'Enséñame la zona en directo y responde dudas.'
     );
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [bookingStep, setBookingStep] = useState(1);
   const [cancelTarget, setCancelTarget] = useState(null);
   const [actionBusy, setActionBusy] = useState(false);
   const [toast, setToast] = useState(null);
@@ -251,6 +252,10 @@ export default function ClientView({
   function selectTargetLocation(position, address) {
     setTargetLocation(position);
     setTargetAddress(address);
+  }
+
+  function continueToDetails() {
+    if (targetLocation && targetAddress) setBookingStep(2);
   }
 
   // --------------------------------------------------
@@ -452,20 +457,17 @@ export default function ClientView({
       <ToastRegion toast={toast} onDismiss={() => setToast(null)} />
       <ConfirmDialog open={Boolean(cancelTarget)} title="Cancelar solicitud" message="¿Quieres cancelar esta solicitud? El local dejará de verla como activa." confirmLabel="Sí, cancelar" busy={actionBusy} onCancel={() => setCancelTarget(null)} onConfirm={() => cancelRequest(cancelTarget)} />
 
-      <section className="hero clientHero">
+      <section className={`hero clientHero ${activeRequests.length ? 'compact' : ''}`}>
         <p className="eyebrow">
           LiveLocal Barcelona
         </p>
 
         <h1>
-          Pide ojos humanos en una zona,
-          como pedir un Uber.
+          ¿Dónde necesitas ayuda en directo?
         </h1>
 
         <p>
-          Ahora el matching usa zonas +
-          distancia aproximada de los
-          locales disponibles.
+          Elige un punto y te conectamos con una persona cercana.
         </p>
       </section>
 
@@ -820,14 +822,19 @@ export default function ClientView({
 
       {/* NUEVA PETICIÓN */}
 
-      <section className="card">
+      {activeRequests.length === 0 && <section className="card bookingCard" aria-labelledby="booking-title">
 
-        <p className="stepLabel">Paso 1 de 3 · Destino</p>
-        <h2>
-          ¿Dónde necesitas un local?
-        </h2>
+        <div className="bookingHeader">
+          <div>
+            <p className="stepLabel">Solicitud nueva</p>
+            <h2 id="booking-title">{bookingStep === 1 ? '¿Dónde necesitas un Local?' : bookingStep === 2 ? '¿Qué necesitas?' : 'Confirma tu solicitud'}</h2>
+          </div>
+          <div className="bookingSteps" aria-label={`Paso ${bookingStep} de 3`}>
+            {[1, 2, 3].map(step => <span key={step} className={step <= bookingStep ? 'active' : ''}>{step}</span>)}
+          </div>
+        </div>
 
-        <div className="locationPickerSection">
+        {bookingStep === 1 && <div className="bookingPanel locationPickerSection">
           <div>
             <h3>Busca o marca el punto exacto</h3>
             <p className="muted">
@@ -847,9 +854,12 @@ export default function ClientView({
               <span>{targetAddress}</span>
             </div>
           )}
-        </div>
+          <button className="primary big bookingNext" onClick={continueToDetails} disabled={!targetLocation || !targetAddress}>
+            Continuar con este destino
+          </button>
+        </div>}
 
-        <div className="coverageBox">
+        {bookingStep > 1 && <div className="coverageBox compactCoverage">
 
           <MapPin
             size={18}
@@ -880,10 +890,11 @@ export default function ClientView({
 
           </div>
 
-        </div>
+          <button className="textButton" onClick={() => setBookingStep(1)}>Cambiar</button>
+        </div>}
 
-        <p className="stepLabel">Paso 2 de 3 · Detalles</p>
-        <div className="formRow">
+        {bookingStep === 2 && <div className="bookingPanel">
+        <div className="formRow bookingDetails">
 
           <label>
 
@@ -932,9 +943,11 @@ export default function ClientView({
           </label>
 
         </div>
+        <div className="bookingActions"><button className="secondary" onClick={() => setBookingStep(1)}>Atrás</button><button className="primary" onClick={() => setBookingStep(3)}>Revisar solicitud</button></div>
+        </div>}
 
+        {bookingStep === 3 && <div className="bookingPanel">
         <div className="requestSummary" aria-label="Resumen de la solicitud">
-          <p className="stepLabel">Paso 3 de 3 · Confirmación</p>
           <b>{targetAddress || 'Selecciona el destino en el mapa'}</b>
           <span>{duration} min · {prices[duration]} €</span>
           {notes && <small>{notes}</small>}
@@ -953,8 +966,10 @@ export default function ClientView({
           {isSubmitting ? 'Creando solicitud…' : 'Pedir local ahora'}
 
         </button>
+        <button className="secondary big" onClick={() => setBookingStep(2)} disabled={isSubmitting}>Modificar detalles</button>
+        </div>}
 
-      </section>
+      </section>}
 
     </div>
   );
