@@ -28,6 +28,8 @@ export default function SessionWorkspace({
   const [chatUnread, setChatUnread] = useState(false);
   const [sessionPoints, setSessionPoints] = useState([]);
   const [mapHasUpdates, setMapHasUpdates] = useState(false);
+  const [mapMode, setMapMode] = useState('explore');
+  const [draftRoute, setDraftRoute] = useState([]);
   const [pendingPoint, setPendingPoint] = useState(null);
   const [pointInstruction, setPointInstruction] = useState('');
   const [pointError, setPointError] = useState('');
@@ -74,15 +76,60 @@ export default function SessionWorkspace({
     setSavingPoint(true);
     setPointError('');
     try {
-      const point = await createSessionPoint({ requestId: request.id, location: pendingPoint, instruction: pointInstruction });
+      const point = await createSessionPoint({
+        requestId: request.id,
+        location: pendingPoint.location,
+        instruction: pointInstruction,
+        type: pendingPoint.type,
+        title: pendingPoint.title,
+        route: pendingPoint.route,
+      });
       setSessionPoints(current => current.some(item => item.id === point.id) ? current : [...current, point]);
       setPendingPoint(null);
       setPointInstruction('');
+      setDraftRoute([]);
+      setMapMode('explore');
     } catch (error) {
       setPointError(error.message || 'No se ha podido compartir el punto');
     } finally {
       setSavingPoint(false);
     }
+  }
+
+  function chooseMapMode(nextMode) {
+    setMapMode(nextMode);
+    setDraftRoute([]);
+    setPointError('');
+  }
+
+  function selectFreePoint(location) {
+    setPointInstruction('');
+    setPendingPoint({ type: 'point', title: 'Punto indicado', location, route: [] });
+  }
+
+  function selectPlace(place) {
+    setPointInstruction(place.instruction || 'Visita este lugar');
+    setPendingPoint({ type: 'place', title: place.title, location: place.location, route: [] });
+  }
+
+  function addRouteVertex(location) {
+    setDraftRoute(current => current.length >= 50 ? current : [...current, location]);
+  }
+
+  function prepareRoute() {
+    if (draftRoute.length < 2) return;
+    setPointInstruction('');
+    setPendingPoint({
+      type: 'route',
+      title: 'Ruta sugerida',
+      location: draftRoute[0],
+      route: draftRoute,
+    });
+  }
+
+  function dismissPendingPoint() {
+    setPendingPoint(null);
+    setPointInstruction('');
   }
 
   async function removePoint(pointId) {
@@ -144,19 +191,45 @@ export default function SessionWorkspace({
       <div className="sessionViewport" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
         <div className="sessionTrack" style={{ transform: `translateX(-${activeIndex * 100}%)` }}>
           <div id="session-panel-map" aria-labelledby="session-tab-map" className={`sessionPanel mapPanel ${activePanel === 'map' ? 'active' : ''}`} role="tabpanel" aria-hidden={activePanel !== 'map'}>
+            {role === 'Cliente' && (
+              <div className="sessionMapTools" role="toolbar" aria-label="Acciones del mapa">
+                {[
+                  ['explore', 'Explorar'],
+                  ['place', 'Comercio'],
+                  ['point', 'Punto'],
+                  ['route', 'Ruta'],
+                ].map(([id, label]) => (
+                  <button key={id} type="button" className={mapMode === id ? 'active' : ''} aria-pressed={mapMode === id} onClick={() => chooseMapMode(id)}>{label}</button>
+                ))}
+              </div>
+            )}
             <div className="sessionMap">
               <LiveTrackingMap
                 localLocation={localLocation}
                 targetLocation={request.targetLocation}
                 sessionPoints={sessionPoints}
-                canAddPoint={role === 'Cliente' && request.status === 'in_progress'}
-                onPointSelected={setPendingPoint}
+                interactionMode={role === 'Cliente' && request.status === 'in_progress' ? mapMode : 'explore'}
+                draftRoute={draftRoute}
+                onPointSelected={selectFreePoint}
+                onPlaceSelected={selectPlace}
+                onRouteVertex={addRouteVertex}
                 onDeletePoint={role === 'Cliente' ? removePoint : null}
               />
-              {role === 'Cliente' && !pendingPoint && (
-                <p className="sessionMapHint">Toca el mapa para indicar al local dónde debe dirigirse</p>
+              {role === 'Cliente' && mapMode !== 'explore' && !pendingPoint && (
+                <p className="sessionMapHint">
+                  {mapMode === 'place' && 'Elige una actividad o lugar visible'}
+                  {mapMode === 'point' && 'Toca el punto exacto al que debe dirigirse'}
+                  {mapMode === 'route' && `Traza la ruta tocando el mapa · ${draftRoute.length} puntos`}
+                </p>
               )}
             </div>
+            {role === 'Cliente' && mapMode === 'route' && (
+              <div className="sessionRouteActions">
+                <button type="button" className="secondary" onClick={() => setDraftRoute(current => current.slice(0, -1))} disabled={!draftRoute.length}>Deshacer</button>
+                <button type="button" className="secondary" onClick={() => setDraftRoute([])} disabled={!draftRoute.length}>Limpiar</button>
+                <button type="button" className="primary" onClick={prepareRoute} disabled={draftRoute.length < 2}>Sugerir ruta</button>
+              </div>
+            )}
             {pointError && <p className="sessionPointError" role="alert">{pointError}</p>}
           </div>
 
@@ -171,14 +244,15 @@ export default function SessionWorkspace({
       </div>
       <p className="sessionSwipeHint">Toca una pestaña o desliza para cambiar de herramienta</p>
       {pendingPoint && (
-        <div className="sessionPointDialogBackdrop" role="presentation" onMouseDown={event => event.target === event.currentTarget && setPendingPoint(null)}>
+        <div className="sessionPointDialogBackdrop" role="presentation" onMouseDown={event => event.target === event.currentTarget && dismissPendingPoint()}>
           <form className="sessionPointDialog" role="dialog" aria-modal="true" aria-labelledby="session-point-title" onSubmit={confirmPoint}>
-            <p className="stepLabel">Nuevo punto</p>
-            <h3 id="session-point-title">¿Qué debe hacer el local aquí?</h3>
+            <p className="stepLabel">{pendingPoint.type === 'route' ? 'Nueva ruta' : pendingPoint.type === 'place' ? 'Nuevo lugar' : 'Nuevo punto'}</p>
+            <h3 id="session-point-title">{pendingPoint.title}</h3>
+            {pendingPoint.type === 'route' && <small>{pendingPoint.route.length} puntos en el recorrido</small>}
             <textarea autoFocus maxLength={240} rows={3} value={pointInstruction} onChange={event => setPointInstruction(event.target.value)} placeholder="Ej.: entra por la puerta lateral (opcional)" />
             <div className="sessionPointDialogActions">
-              <button type="button" className="secondary" onClick={() => setPendingPoint(null)} disabled={savingPoint}>Cancelar</button>
-              <button type="submit" className="primary" disabled={savingPoint}>{savingPoint ? 'Compartiendo…' : 'Compartir punto'}</button>
+              <button type="button" className="secondary" onClick={dismissPendingPoint} disabled={savingPoint}>Cancelar</button>
+              <button type="submit" className="primary" disabled={savingPoint}>{savingPoint ? 'Compartiendo…' : 'Compartir sugerencia'}</button>
             </div>
           </form>
         </div>

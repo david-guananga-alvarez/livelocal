@@ -5,7 +5,12 @@ function mapPoint(row) {
     id: row.id,
     requestId: row.request_id,
     createdBy: row.created_by,
+    type: row.suggestion_type || 'point',
+    title: row.title || '',
     location: { lat: Number(row.latitude), lng: Number(row.longitude) },
+    route: Array.isArray(row.route)
+      ? row.route.map(vertex => ({ lat: Number(vertex.lat), lng: Number(vertex.lng) }))
+      : [],
     instruction: row.instruction || '',
     createdAt: row.created_at,
   };
@@ -22,7 +27,14 @@ export async function getSessionPoints(requestId) {
   return (data || []).map(mapPoint);
 }
 
-export async function createSessionPoint({ requestId, location, instruction }) {
+export async function createSessionPoint({
+  requestId,
+  location,
+  instruction,
+  type = 'point',
+  title = '',
+  route = [],
+}) {
   if (!supabase) throw new Error('Supabase no está configurado');
   const { data, error } = await supabase
     .from('session_map_points')
@@ -31,6 +43,9 @@ export async function createSessionPoint({ requestId, location, instruction }) {
       latitude: location.lat,
       longitude: location.lng,
       instruction: instruction.trim() || null,
+      suggestion_type: type,
+      title: title.trim() || null,
+      route: type === 'route' ? route : null,
     })
     .select()
     .single();

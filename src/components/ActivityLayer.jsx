@@ -32,6 +32,7 @@ export default function ActivityLayer({
   includeExtended,
   onSelect,
   onStatusChange,
+  actionLabel = 'Buscar un local aquí',
 }) {
   const [activities, setActivities] = useState([]);
   const [bounds, setBounds] = useState(null);
@@ -171,11 +172,12 @@ export default function ActivityLayer({
             onClick={() =>
               onSelect(
                 { lat: activity.latitude, lng: activity.longitude },
-                `${activity.title} · ${activity.address}`
+                `${activity.title} · ${activity.address}`,
+                activity
               )
             }
           >
-            Buscar un local aquí
+            {actionLabel}
           </button>
           <a href={activity.sourceUrl} target="_blank" rel="noreferrer">
             Ver fuente

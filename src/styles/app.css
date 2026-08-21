@@ -730,6 +730,10 @@ textarea { resize: vertical; line-height: 1.5; }
 .sessionPanel { flex: 0 0 100%; width: 100%; min-width: 0; padding: 16px; opacity: .35; pointer-events: none; transition: opacity .18s ease; }
 .sessionPanel.active { opacity: 1; pointer-events: auto; }
 .sessionPanel > .card { height: 100%; margin: 0; box-shadow: none; }
+.sessionMapTools { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 10px; padding: 5px; background: #e8edf5; border-radius: 14px; }
+.sessionMapTools button { justify-content: center; min-width: 0; padding: 9px 6px; color: #526174; background: transparent; border-radius: 10px; font-size: 12px; }
+.sessionMapTools button:hover { transform: none; box-shadow: none; }
+.sessionMapTools button.active { color: #fff; background: var(--brand); box-shadow: 0 5px 14px rgba(37,99,235,.24); }
 .sessionMap { position: relative; height: clamp(390px, 58vh, 620px); overflow: hidden; background: #eef2f6; border-radius: 18px; }
 .sessionMap .leaflet-container { min-height: 100% !important; }
 .sessionMapHint { position: absolute; z-index: 500; left: 50%; bottom: 14px; width: max-content; max-width: calc(100% - 28px); margin: 0; padding: 9px 13px; color: #fff; background: rgba(15,23,42,.82); border-radius: 999px; box-shadow: 0 8px 22px rgba(15,23,42,.2); font-size: 12px; font-weight: 800; transform: translateX(-50%); pointer-events: none; }
@@ -741,6 +745,8 @@ textarea { resize: vertical; line-height: 1.5; }
 .sessionPointDialog .stepLabel, .sessionPointDialog h3 { margin: 0; }
 .sessionPointDialog textarea { width: 100%; resize: vertical; }
 .sessionPointDialogActions { display: flex; justify-content: flex-end; gap: 10px; }
+.sessionRouteActions { display: flex; justify-content: flex-end; gap: 8px; padding-top: 10px; }
+.sessionRouteActions button { min-width: 0; }
 .sessionSwipeHint { margin: 0; padding: 0 16px 14px; color: var(--muted); font-size: 12px; text-align: center; }
 .videoRoom.isBackground video { visibility: visible; }
 .chatPanel .chat { min-height: clamp(420px, 58vh, 620px); }
