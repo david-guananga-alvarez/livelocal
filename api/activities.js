@@ -3,6 +3,46 @@ const DATASET_URL =
 
 const AGENDA_URL = 'https://guia.barcelona.cat/ca/agenda';
 const MAX_FUTURE_DAYS = 30;
+const barcelonaDateFormatter = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Europe/Madrid',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
+
+function addDays(dateValue, days) {
+  const date = new Date(`${dateValue}T12:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+function getTemporalMetadata(startDate, endDate) {
+  const start = new Date(startDate);
+  const end = new Date(endDate || startDate);
+  const durationDays = Math.max(0, Math.round((end - start) / 86400000));
+  const sameDay =
+    String(startDate).slice(0, 10) ===
+    String(endDate || startDate).slice(0, 10);
+
+  if (sameDay) {
+    return {
+      temporalType: 'point',
+      temporalLabel: 'Actividad puntual',
+      durationDays: 0,
+    };
+  }
+  if (durationDays <= 30) {
+    return { temporalType: 'multi-day', temporalLabel: 'Varios días', durationDays };
+  }
+  if (durationDays <= 90) {
+    return { temporalType: 'seasonal', temporalLabel: 'Temporada', durationDays };
+  }
+  return {
+    temporalType: 'long-running',
+    temporalLabel: 'Larga duración',
+    durationDays,
+  };
+}
 
 function normalizeEvent(event) {
   const latitude = Number(event.geo_epgs_4326_lat);
@@ -15,13 +55,15 @@ function normalizeEvent(event) {
   const address = [event.addresses_road_name, streetNumber]
     .filter(Boolean)
     .join(' ');
+  const endDate = event.end_date || event.start_date;
 
   return {
     id: String(event.register_id).replace(/^\uFEFF/, ''),
     title: event.name,
     category: 'Activitat',
     startDate: event.start_date,
-    endDate: event.end_date,
+    endDate,
+    ...getTemporalMetadata(event.start_date, endDate),
     address: address || event.addresses_district_name || 'Barcelona',
     district: event.addresses_district_name || null,
     latitude,
@@ -52,18 +94,20 @@ module.exports = async function handler(request, response) {
     }
 
     const sourceEvents = sourceData.result.records;
-    const now = new Date();
-    const horizon = new Date(now);
-    horizon.setDate(horizon.getDate() + MAX_FUTURE_DAYS);
+    const today = barcelonaDateFormatter.format(new Date());
+    const horizon = addDays(today, MAX_FUTURE_DAYS);
 
     const activities = sourceEvents
       .filter(event => {
-        const startDate = new Date(event.start_date);
-        const endDate = new Date(event.end_date || event.start_date);
+        const startDate = String(event.start_date || '').slice(0, 10);
+        const endDate = String(event.end_date || event.start_date || '').slice(
+          0,
+          10
+        );
         return (
-          Number.isFinite(startDate.getTime()) &&
-          Number.isFinite(endDate.getTime()) &&
-          endDate >= now &&
+          /^\d{4}-\d{2}-\d{2}$/.test(startDate) &&
+          /^\d{4}-\d{2}-\d{2}$/.test(endDate) &&
+          endDate >= today &&
           startDate <= horizon
         );
       })

@@ -24,9 +24,6 @@ function toDateInputValue(date) {
   )}`;
 }
 
-function toTimeInputValue(date) {
-  return `${padDatePart(date.getHours())}:${padDatePart(date.getMinutes())}`;
-}
 let lastNominatimRequestAt = 0;
 let nominatimQueue = Promise.resolve();
 
@@ -116,26 +113,17 @@ export default function LocationPickerMap({ value, address, onChange }) {
   const [activityDate, setActivityDate] = useState(() =>
     toDateInputValue(new Date())
   );
-  const [activityTime, setActivityTime] = useState(() =>
-    toTimeInputValue(new Date())
-  );
+  const [includeExtendedActivities, setIncludeExtendedActivities] =
+    useState(false);
 
   const activityTimeRange = useMemo(() => {
     const now = new Date();
 
-    if (activityTimeMode === 'next-hours') {
-      return {
-        start: now,
-        end: new Date(now.getTime() + 3 * 60 * 60 * 1000),
-      };
-    }
-
     if (activityTimeMode === 'custom') {
-      const start = new Date(`${activityDate}T${activityTime || '00:00'}`);
-      return {
-        start,
-        end: new Date(start.getTime() + 3 * 60 * 60 * 1000),
-      };
+      const start = new Date(`${activityDate}T00:00`);
+      const end = new Date(start);
+      end.setHours(23, 59, 59, 999);
+      return { start, end };
     }
 
     const start = new Date(now);
@@ -143,7 +131,7 @@ export default function LocationPickerMap({ value, address, onChange }) {
     const end = new Date(now);
     end.setHours(23, 59, 59, 999);
     return { start, end };
-  }, [activityDate, activityTime, activityTimeMode]);
+  }, [activityDate, activityTimeMode]);
 
   useEffect(() => {
     setQuery(address || '');
@@ -259,7 +247,11 @@ export default function LocationPickerMap({ value, address, onChange }) {
           <small>Cargando agenda…</small>
         )}
         {showActivities && activityStatus.state === 'ready' && (
-          <small>{activityStatus.count} actividades vigentes disponibles</small>
+          <small>
+            {activityStatus.count} actividades relevantes
+            {activityStatus.extendedCount > 0 &&
+              ` · ${activityStatus.extendedCount} de temporada o larga duración`}
+          </small>
         )}
         {showActivities && activityStatus.state === 'error' && (
           <small className="error">No se pudo cargar la agenda.</small>
@@ -278,17 +270,17 @@ export default function LocationPickerMap({ value, address, onChange }) {
             </button>
             <button
               type="button"
-              className={activityTimeMode === 'next-hours' ? 'active' : ''}
-              onClick={() => setActivityTimeMode('next-hours')}
+              className={activityTimeMode === 'starts-today' ? 'active' : ''}
+              onClick={() => setActivityTimeMode('starts-today')}
             >
-              Próximas 3 horas
+              Empiezan hoy
             </button>
             <button
               type="button"
               className={activityTimeMode === 'custom' ? 'active' : ''}
               onClick={() => setActivityTimeMode('custom')}
             >
-              Fecha y hora
+              Elegir fecha
             </button>
           </div>
 
@@ -303,17 +295,18 @@ export default function LocationPickerMap({ value, address, onChange }) {
                   onChange={event => setActivityDate(event.target.value)}
                 />
               </label>
-              <label>
-                Hora
-                <input
-                  type="time"
-                  value={activityTime}
-                  onChange={event => setActivityTime(event.target.value)}
-                />
-              </label>
-              <small>Se mostrarán las actividades que empiezan durante las 3 horas siguientes.</small>
+              <small>Se mostrarán las actividades disponibles durante ese día.</small>
             </div>
           )}
+
+          <label className="extendedActivitiesToggle">
+            <input
+              type="checkbox"
+              checked={includeExtendedActivities}
+              onChange={event => setIncludeExtendedActivities(event.target.checked)}
+            />
+            Incluir temporadas y actividades de larga duración
+          </label>
         </div>
       )}
 
@@ -333,6 +326,8 @@ export default function LocationPickerMap({ value, address, onChange }) {
             enabled={showActivities}
             rangeStart={activityTimeRange.start}
             rangeEnd={activityTimeRange.end}
+            startsOnSelectedDate={activityTimeMode === 'starts-today'}
+            includeExtended={includeExtendedActivities}
             onSelect={selectActivity}
             onStatusChange={setActivityStatus}
           />
