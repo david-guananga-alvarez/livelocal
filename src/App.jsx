@@ -38,5 +38,16 @@ export default function App(){
  if(loading) return <main className="loadingScreen"><div className="spinner"></div><p>Cargando sesión...</p></main>;
  if(!isAuthenticated) return <LoginScreen/>;
 
- return <main><nav className="topbar"><div className="brand"><Eye/> <b>LiveLocal</b><span>Google Auth</span></div><div className="tabs"><button className={tab==='client'?'active':''} onClick={()=>setTab('client')}><User size={16}/> Cliente</button><button className={tab==='local'?'active':''} onClick={()=>setTab('local')}><MapPinned size={16}/> Local</button><button className={tab==='admin'?'active':''} onClick={()=>setTab('admin')}><Shield size={16}/> Admin</button></div><UserMenu/></nav>{tab==='client'&&<ClientView state={state} setState={setState}/>} {tab==='local'&&<LocalView state={state} setState={setState}/>} {tab==='admin'&&<AdminView state={state} setState={setState}/>}</main>;
+ return <main className="appShell">
+   <nav className="topbar" aria-label="Navegación principal">
+     <div className="brand"><span className="brandMark"><Eye size={19}/></span><b>LiveLocal</b><span className="brandCity">Barcelona</span></div>
+     <div className="tabs" role="tablist" aria-label="Modo de uso">
+       <button role="tab" aria-selected={tab==='client'} className={tab==='client'?'active':''} onClick={()=>setTab('client')}><User size={16}/> Cliente</button>
+       <button role="tab" aria-selected={tab==='local'} className={tab==='local'?'active':''} onClick={()=>setTab('local')}><MapPinned size={16}/> Local</button>
+       <button role="tab" aria-selected={tab==='admin'} className={tab==='admin'?'active':''} onClick={()=>setTab('admin')}><Shield size={16}/> Admin</button>
+     </div>
+     <UserMenu/>
+   </nav>
+   <div className="appContent">{tab==='client'&&<ClientView state={state} setState={setState}/>} {tab==='local'&&<LocalView state={state} setState={setState}/>} {tab==='admin'&&<AdminView state={state} setState={setState}/>}</div>
+ </main>;
 }

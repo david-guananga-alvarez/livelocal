@@ -438,9 +438,9 @@ export default function ClientView({
   // --------------------------------------------------
 
   return (
-    <div className="stack">
+    <div className="stack appView clientView">
 
-      <section className="hero">
+      <section className="hero clientHero">
         <p className="eyebrow">
           LiveLocal Barcelona
         </p>

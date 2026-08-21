@@ -17,9 +17,10 @@ export default function LoginScreen(){
 
   return <main className="loginPage">
     <section className="loginCard">
-      <div className="loginBrand"><Eye size={30}/><b>LiveLocal</b></div>
+      <div className="loginBrand"><span><Eye size={26}/></span><b>LiveLocal</b></div>
+      <p className="eyebrow">Conecta con alguien que ya está allí</p>
       <h1>Accede para pedir o aceptar sesiones</h1>
-      <p>Usa tu cuenta de Google para entrar. En producción el login se gestiona con Supabase Auth.</p>
+      <p>Explora una zona de Barcelona en directo o ayuda a otra persona mostrando lo que sucede a tu alrededor.</p>
       <button className="googleBtn" onClick={handleGoogle} disabled={busy}>
         <Mail size={18}/>{busy ? 'Conectando...' : 'Continuar con Google'}
       </button>

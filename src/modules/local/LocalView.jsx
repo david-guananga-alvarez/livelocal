@@ -1087,7 +1087,7 @@ export default function LocalView({ state, setState }) {
 
   if (mine) {
     return (
-      <div className="stack">
+      <div className="stack appView localView">
 
         <section className="hero compact">
 
@@ -1289,7 +1289,7 @@ export default function LocalView({ state, setState }) {
   // --------------------------------------------------
 
   return (
-    <div className="stack">
+    <div className="stack appView localView">
 
       <section className="hero compact">
 
