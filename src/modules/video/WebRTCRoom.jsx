@@ -49,7 +49,10 @@ export default function WebRTCRoom({ roomId, role, isActive = true }) {
   const [activeView, setActiveView] = useState('remote');
   const [videoDevices, setVideoDevices] = useState([]);
   const [activeDeviceId, setActiveDeviceId] = useState('');
+  const [facingMode, setFacingMode] = useState('user');
   const [switchingCamera, setSwitchingCamera] = useState(false);
+  const isMobileDevice = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  const canSwitchCamera = isMobileDevice || videoDevices.length > 1;
 
   useEffect(() => {
     return () => {
@@ -206,6 +209,7 @@ export default function WebRTCRoom({ roomId, role, isActive = true }) {
 
       const currentVideoTrack = stream.getVideoTracks()[0];
       setActiveDeviceId(currentVideoTrack?.getSettings().deviceId || '');
+      setFacingMode(currentVideoTrack?.getSettings().facingMode || 'user');
 
       const devices = await navigator.mediaDevices.enumerateDevices();
       setVideoDevices(devices.filter(device => device.kind === 'videoinput'));
@@ -547,25 +551,48 @@ export default function WebRTCRoom({ roomId, role, isActive = true }) {
   }
 
   async function switchCamera() {
-    if (switchingCamera || videoDevices.length < 2 || !pcRef.current) return;
+    if (switchingCamera || !pcRef.current) return;
 
-    const currentIndex = videoDevices.findIndex(device => device.deviceId === activeDeviceId);
-    const nextDevice = videoDevices[(currentIndex + 1 + videoDevices.length) % videoDevices.length];
-    if (!nextDevice) return;
+    const nextFacingMode = facingMode === 'environment' ? 'user' : 'environment';
+    const currentTrack = localStreamRef.current?.getVideoTracks()[0];
+    const sender = pcRef.current.getSenders().find(item => item.track?.kind === 'video');
+    if (!currentTrack || !sender) return;
 
     let replacementStream;
     try {
       setSwitchingCamera(true);
       setError('');
-      replacementStream = await navigator.mediaDevices.getUserMedia({
-        video: { deviceId: { exact: nextDevice.deviceId } },
-        audio: false,
-      });
+
+      try {
+        await currentTrack.applyConstraints({
+          facingMode: { exact: nextFacingMode },
+        });
+
+        const settings = currentTrack.getSettings();
+        setFacingMode(settings.facingMode || nextFacingMode);
+        setActiveDeviceId(settings.deviceId || activeDeviceId);
+        setStatus(`Cámara ${nextFacingMode === 'environment' ? 'trasera' : 'frontal'} activa`);
+        return;
+      } catch (constraintError) {
+        console.info('El navegador requiere sustituir la pista de cámara:', constraintError);
+      }
+
+      try {
+        replacementStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { exact: nextFacingMode } },
+          audio: false,
+        });
+      } catch (facingError) {
+        const currentIndex = videoDevices.findIndex(device => device.deviceId === activeDeviceId);
+        const nextDevice = videoDevices[(currentIndex + 1 + videoDevices.length) % videoDevices.length];
+        if (!nextDevice) throw facingError;
+        replacementStream = await navigator.mediaDevices.getUserMedia({
+          video: { deviceId: { exact: nextDevice.deviceId } },
+          audio: false,
+        });
+      }
 
       const nextTrack = replacementStream.getVideoTracks()[0];
-      const sender = pcRef.current
-        .getSenders()
-        .find(item => item.track?.kind === 'video');
 
       if (!nextTrack || !sender) {
         throw new Error('No se pudo preparar la otra cámara');
@@ -580,8 +607,10 @@ export default function WebRTCRoom({ roomId, role, isActive = true }) {
       const updatedStream = new MediaStream([...audioTracks, nextTrack]);
       localStreamRef.current = updatedStream;
       if (localVideo.current) localVideo.current.srcObject = updatedStream;
-      setActiveDeviceId(nextTrack.getSettings().deviceId || nextDevice.deviceId);
-      setStatus('Cámara cambiada sin interrumpir la llamada');
+      const nextSettings = nextTrack.getSettings();
+      setActiveDeviceId(nextSettings.deviceId || '');
+      setFacingMode(nextSettings.facingMode || nextFacingMode);
+      setStatus(`Cámara ${nextFacingMode === 'environment' ? 'trasera' : 'frontal'} activa`);
     } catch (cameraError) {
       replacementStream?.getTracks().forEach(track => track.stop());
       console.error('Error cambiando de cámara:', cameraError);
@@ -639,6 +668,7 @@ export default function WebRTCRoom({ roomId, role, isActive = true }) {
     setRemoteAvailable(false);
     setVideoDevices([]);
     setActiveDeviceId('');
+    setFacingMode('user');
     setStatus('Sala detenida');
   }
 
@@ -663,9 +693,9 @@ export default function WebRTCRoom({ roomId, role, isActive = true }) {
 
         {started ? (
           <div className="callActions">
-          {videoDevices.length > 1 && <button type="button" className="secondary" onClick={switchCamera} disabled={switchingCamera}>
+          {canSwitchCamera && <button type="button" className="secondary" onClick={switchCamera} disabled={switchingCamera}>
             <SwitchCamera size={16} />
-            {switchingCamera ? 'Cambiando…' : 'Cambiar cámara'}
+            {switchingCamera ? 'Cambiando…' : facingMode === 'environment' ? 'Usar frontal' : 'Usar trasera'}
           </button>}
           <button
             className="danger"
