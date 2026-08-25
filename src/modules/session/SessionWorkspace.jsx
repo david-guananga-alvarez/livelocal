@@ -3,6 +3,8 @@ import { Map, MessageCircle, Video } from 'lucide-react';
 import ChatPanel from '../chat/ChatPanel';
 import WebRTCRoom from '../video/WebRTCRoom';
 import LiveTrackingMap from '../../components/LiveTrackingMap';
+import { StatusBadge } from '../../components/ui/Primitives';
+import SessionSuggestionQueue from './components/SessionSuggestionQueue';
 import {
   createSessionPoint,
   deleteSessionPoint,
@@ -198,7 +200,7 @@ export default function SessionWorkspace({
           <p className="stepLabel">Sesión en directo</p>
           <h3>{request.zoneName}</h3>
         </div>
-        <span className="sessionLiveBadge"><i /> Conectada</span>
+        <StatusBadge tone="success" icon={<i className="sessionLiveDot" />}>Sesión conectada</StatusBadge>
       </div>
 
       <div className="sessionTabs" role="tablist" aria-label="Herramientas de sesión">
@@ -254,48 +256,7 @@ export default function SessionWorkspace({
                 <button type="button" className="primary" onClick={prepareRoute} disabled={draftRoute.length < 2}>Sugerir ruta</button>
               </div>
             )}
-            {role === 'Local' && (
-              <section className="sessionSuggestionQueue" aria-labelledby="session-suggestions-title">
-                <div className="sessionSuggestionQueueHeader">
-                  <div>
-                    <p className="stepLabel">Plan del cliente</p>
-                    <h4 id="session-suggestions-title">Sugerencias de la sesión</h4>
-                  </div>
-                  <span>{sessionPoints.length}</span>
-                </div>
-                {!orderedSuggestions.length ? (
-                  <p className="sessionSuggestionEmpty">El cliente todavía no ha compartido ninguna acción.</p>
-                ) : (
-                  <div className="sessionSuggestionList">
-                    {orderedSuggestions.map((point, index) => (
-                      <article key={point.id} className={`sessionSuggestionCard sessionSuggestionCard-${point.progressStatus}`}>
-                        <div className="sessionSuggestionNumber">{index + 1}</div>
-                        <div className="sessionSuggestionBody">
-                          <div className="sessionSuggestionTitleRow">
-                            <strong>{point.title || 'Sugerencia del cliente'}</strong>
-                            <span className={`suggestionStatus suggestionStatus-${point.progressStatus}`}>
-                              {point.progressStatus === 'in_progress' ? 'En curso' : point.progressStatus === 'completed' ? 'Finalizada' : 'Pendiente'}
-                            </span>
-                          </div>
-                          <small>{point.type === 'route' ? `Ruta · ${point.route.length} puntos` : point.type === 'place' ? 'Comercio o lugar' : 'Punto concreto'}</small>
-                          {point.instruction && <p>{point.instruction}</p>}
-                        </div>
-                        {point.progressStatus === 'pending' && (
-                          <button type="button" className="primary" disabled={Boolean(activeSuggestion) || Boolean(progressingPointId)} onClick={() => progressSuggestion(point, 'in_progress')}>
-                            {progressingPointId === point.id ? 'Iniciando…' : 'Iniciar'}
-                          </button>
-                        )}
-                        {point.progressStatus === 'in_progress' && (
-                          <button type="button" className="primary" disabled={Boolean(progressingPointId)} onClick={() => progressSuggestion(point, 'completed')}>
-                            {progressingPointId === point.id ? 'Finalizando…' : 'Finalizar'}
-                          </button>
-                        )}
-                      </article>
-                    ))}
-                  </div>
-                )}
-              </section>
-            )}
+            {role === 'Local' && <SessionSuggestionQueue suggestions={orderedSuggestions} activeSuggestion={activeSuggestion} progressingPointId={progressingPointId} onProgress={progressSuggestion} />}
             {pointError && <p className="sessionPointError" role="alert">{pointError}</p>}
           </div>
 

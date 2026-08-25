@@ -14,9 +14,9 @@ export default function ServiceProgress({ status }) {
   const cancelled = status === 'cancelled';
 
   return (
-    <div className="serviceProgress" aria-label={`Progreso: ${cancelled ? 'Cancelado' : steps[current]?.[1] || status}`}>
+    <div className={`serviceProgress${cancelled ? ' isCancelled' : ''}`} aria-label={`Progreso: ${cancelled ? 'Cancelado' : steps[current]?.[1] || status}`}>
       {steps.map(([value, label], index) => (
-        <div className={index < current ? 'done' : index === current ? 'current' : ''} key={value}>
+        <div className={index < current ? 'done' : index === current ? 'current' : ''} aria-current={index === current ? 'step' : undefined} key={value}>
           <span aria-hidden="true">{index < current ? '✓' : index + 1}</span>
           <small>{label}</small>
         </div>

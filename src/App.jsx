@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Eye, User, MapPinned, Shield } from 'lucide-react';
 import { loadState, saveState, storageKeyFor } from './state/store';
+import AppShell from './components/AppShell';
+import AppStateScreen from './components/AppStateScreen';
+import useNetworkStatus from './hooks/useNetworkStatus';
 import ClientView from './modules/client/ClientView';
 import LocalView from './modules/local/LocalView';
 import AdminView from './modules/admin/AdminView';
@@ -15,6 +17,7 @@ export default function App(){
  const [tab,setTab]=useState('client');
  const activeRole = tab;
  const canAccessAdmin = !hasSupabaseConfig || role === 'admin';
+ const isOnline = useNetworkStatus();
 
  useEffect(()=>{ if(isAuthenticated) setStateRaw(loadState(userId)); }, [isAuthenticated, userId]);
 
@@ -41,21 +44,14 @@ export default function App(){
    if(tab === 'admin' && !canAccessAdmin) setTab('client');
  }, [tab, canAccessAdmin]);
 
- if(loading) return <main className="loadingScreen"><div className="spinner"></div><p>Cargando sesión...</p></main>;
+ if(loading) return <AppStateScreen title="Cargando tu sesión" message="Estamos preparando LiveLocal de forma segura."/>;
  if(!isAuthenticated) return <LoginScreen/>;
- if(profileLoading) return <main className="loadingScreen"><div className="spinner"></div><p>Preparando tu experiencia...</p></main>;
- if(hasSupabaseConfig && profileError) return <main className="loadingScreen profileError"><h1>No hemos podido abrir tu perfil</h1><p>{profileError}</p><div className="dialogActions"><button onClick={()=>reloadProfile()}>Reintentar</button><button className="secondary" onClick={signOut}>Cerrar sesión</button></div></main>;
+ if(profileLoading) return <AppStateScreen title="Preparando tu experiencia" message="Estamos recuperando tu perfil y preferencias."/>;
+ if(hasSupabaseConfig && profileError) return <AppStateScreen type="error" title="No hemos podido abrir tu perfil" message={profileError} primaryAction={{ label: 'Reintentar', onClick: reloadProfile }} secondaryAction={{ label: 'Cerrar sesión', onClick: signOut }}/>;
 
- return <main className="appShell">
-   <nav className="topbar" aria-label="Navegación principal">
-     <div className="brand"><span className="brandMark"><Eye size={19}/></span><span className="brandCopy"><b>LiveLocal</b><small>Barcelona</small></span></div>
-     <div className="tabs" role="tablist" aria-label="Elige cómo quieres usar LiveLocal">
-       <button type="button" role="tab" aria-selected={tab==='client'} className={tab==='client'?'active':''} onClick={()=>setTab('client')}><User size={17}/><span>Necesito un Local</span></button>
-       <button type="button" role="tab" aria-selected={tab==='local'} className={tab==='local'?'active':''} onClick={()=>setTab('local')}><MapPinned size={17}/><span>Quiero ser Local</span></button>
-       {canAccessAdmin && <button type="button" role="tab" aria-selected={tab==='admin'} className={tab==='admin'?'active':''} onClick={()=>setTab('admin')}><Shield size={17}/><span>Admin</span></button>}
-     </div>
-     <UserMenu/>
-   </nav>
-   <div className="appContent" key={activeRole}>{activeRole==='client'&&<ClientView state={state} setState={setState}/>} {activeRole==='local'&&<LocalView state={state} setState={setState}/>} {activeRole==='admin'&&<AdminView state={state} setState={setState}/>}</div>
- </main>;
+ return (
+   <AppShell activeRole={activeRole} canAccessAdmin={canAccessAdmin} onRoleChange={setTab} userMenu={<UserMenu/>} isOnline={isOnline}>
+     {activeRole==='client'&&<ClientView state={state} setState={setState}/>} {activeRole==='local'&&<LocalView state={state} setState={setState}/>} {activeRole==='admin'&&<AdminView state={state} setState={setState}/>}
+   </AppShell>
+ );
 }

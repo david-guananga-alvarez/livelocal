@@ -5,7 +5,6 @@ import React, {
 } from 'react';
 
 import {
-  Search,
   CheckCircle,
   MapPin,
   Navigation,
@@ -18,17 +17,13 @@ import {
   statusLabel,
 } from '../matching/matching';
 
-import {
-  formatDistance,
-} from '../location/location';
-
-import LocationPickerMap from '../../components/LocationPickerMap';
 import LiveTrackingMap from '../../components/LiveTrackingMap';
 import ServiceProgress from '../../components/ServiceProgress';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import ToastRegion from '../../components/ToastRegion';
 
 import SessionWorkspace from '../session/SessionWorkspace';
+import ClientBookingFlow from './components/ClientBookingFlow';
 
 import {
   createRequest,
@@ -821,155 +816,23 @@ export default function ClientView({
       )}
 
       {/* NUEVA PETICIÓN */}
-
-      {activeRequests.length === 0 && <section className="card bookingCard" aria-labelledby="booking-title">
-
-        <div className="bookingHeader">
-          <div>
-            <p className="stepLabel">Solicitud nueva</p>
-            <h2 id="booking-title">{bookingStep === 1 ? '¿Dónde necesitas un Local?' : bookingStep === 2 ? '¿Qué necesitas?' : 'Confirma tu solicitud'}</h2>
-          </div>
-          <div className="bookingSteps" aria-label={`Paso ${bookingStep} de 3`}>
-            {[1, 2, 3].map(step => <span key={step} className={step <= bookingStep ? 'active' : ''}>{step}</span>)}
-          </div>
-        </div>
-
-        {bookingStep === 1 && <div className="bookingPanel locationPickerSection">
-          <div>
-            <h3>Busca o marca el punto exacto</h3>
-            <p className="muted">
-              Escribe una dirección o selecciónala directamente en el mapa.
-            </p>
-          </div>
-
-          <LocationPickerMap
-            value={targetLocation}
-            address={targetAddress}
-            onChange={selectTargetLocation}
-          />
-
-          {targetLocation && targetAddress && (
-            <div className="selectedAddress">
-              <MapPin size={18} />
-              <span>{targetAddress}</span>
-            </div>
-          )}
-          <button className="primary big bookingNext" onClick={continueToDetails} disabled={!targetLocation || !targetAddress}>
-            Continuar con este destino
-          </button>
-        </div>}
-
-        {bookingStep > 1 && <div className="coverageBox compactCoverage">
-
-          <MapPin
-            size={18}
-          />
-
-          <div>
-
-            <b>
-              {targetAddress || 'Selecciona un destino'}
-            </b>
-
-            <span>
-              {matches.length} locales cercanos
-              {matches[0] && ` · ETA ${matches[0].etaMinutes} min`}
-            </span>
-
-            {matches[0] && (
-
-              <small>
-                Más cercano:{' '}
-                {matches[0].name},{' '}
-                {formatDistance(
-                  matches[0]
-                    .distanceKm
-                )}
-              </small>
-            )}
-
-          </div>
-
-          <button className="textButton" onClick={() => setBookingStep(1)}>Cambiar</button>
-        </div>}
-
-        {bookingStep === 2 && <div className="bookingPanel">
-        <div className="formRow bookingDetails">
-
-          <label>
-
-            Duración
-
-            <select
-              value={duration}
-              onChange={
-                event =>
-                  setDuration(
-                    +event.target.value
-                  )
-              }
-            >
-
-              <option value="15">
-                15 min · 15 €
-              </option>
-
-              <option value="30">
-                30 min · 25 €
-              </option>
-
-              <option value="45">
-                45 min · 35 €
-              </option>
-
-            </select>
-
-          </label>
-
-          <label>
-
-            Instrucciones
-
-            <textarea
-              value={notes}
-              onChange={
-                event =>
-                  setNotes(
-                    event.target.value
-                  )
-              }
-            />
-
-          </label>
-
-        </div>
-        <div className="bookingActions"><button className="secondary" onClick={() => setBookingStep(1)}>Atrás</button><button className="primary" onClick={() => setBookingStep(3)}>Revisar solicitud</button></div>
-        </div>}
-
-        {bookingStep === 3 && <div className="bookingPanel">
-        <div className="requestSummary" aria-label="Resumen de la solicitud">
-          <b>{targetAddress || 'Selecciona el destino en el mapa'}</b>
-          <span>{duration} min · {prices[duration]} €</span>
-          {notes && <small>{notes}</small>}
-        </div>
-
-        <button
-          className="primary big"
-          onClick={requestNow}
-          disabled={isSubmitting || !targetLocation || !targetAddress}
-        >
-
-          <Search
-            size={18}
-          />
-
-          {isSubmitting ? 'Creando solicitud…' : 'Pedir local ahora'}
-
-        </button>
-        <button className="secondary big" onClick={() => setBookingStep(2)} disabled={isSubmitting}>Modificar detalles</button>
-        </div>}
-
-      </section>}
+      {activeRequests.length === 0 && (
+        <ClientBookingFlow
+          step={bookingStep}
+          targetLocation={targetLocation}
+          targetAddress={targetAddress}
+          matches={matches}
+          duration={duration}
+          notes={notes}
+          isSubmitting={isSubmitting}
+          onLocationChange={selectTargetLocation}
+          onDurationChange={setDuration}
+          onNotesChange={setNotes}
+          onStepChange={setBookingStep}
+          onContinue={continueToDetails}
+          onSubmit={requestNow}
+        />
+      )}
 
     </div>
   );

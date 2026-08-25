@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Eye, Lock, Mail } from 'lucide-react';
+import { Button } from '../../components/ui/Primitives';
 import { useAuth } from './AuthProvider';
 
 export default function LoginScreen(){
@@ -16,16 +17,16 @@ export default function LoginScreen(){
   }
 
   return <main className="loginPage">
-    <section className="loginCard">
+    <section className="loginCard" aria-labelledby="login-title">
       <div className="loginBrand"><span><Eye size={26}/></span><b>LiveLocal</b></div>
       <p className="eyebrow">Conecta con alguien que ya está allí</p>
-      <h1>Accede para pedir o aceptar sesiones</h1>
+      <h1 id="login-title">Descubre Barcelona como si ya estuvieras allí</h1>
       <p>Explora una zona de Barcelona en directo o ayuda a otra persona mostrando lo que sucede a tu alrededor.</p>
-      <button className="googleBtn" onClick={handleGoogle} disabled={busy}>
-        <Mail size={18}/>{busy ? 'Conectando...' : 'Continuar con Google'}
-      </button>
+      <Button variant="secondary" size="lg" className="googleBtn" loading={busy} onClick={handleGoogle}>
+        {!busy && <Mail size={18} aria-hidden="true"/>}{busy ? 'Conectando…' : 'Continuar con Google'}
+      </Button>
       {!hasSupabaseConfig && <div className="devNotice"><Lock size={16}/><span>Modo desarrollo: falta configurar Supabase. Este botón crea una sesión demo local.</span></div>}
-      {error && <p className="errorText">{error}</p>}
+      {error && <p className="errorText" role="alert">{error}</p>}
     </section>
   </main>;
 }

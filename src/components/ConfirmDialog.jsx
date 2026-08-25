@@ -2,12 +2,25 @@ import React, { useEffect, useRef } from 'react';
 
 export default function ConfirmDialog({ open, title, message, confirmLabel = 'Confirmar', busy = false, onConfirm, onCancel }) {
   const cancelRef = useRef(null);
-  useEffect(() => { if (open) cancelRef.current?.focus(); }, [open]);
+  useEffect(() => {
+    if (!open) return undefined;
+    const previousFocus = document.activeElement;
+    cancelRef.current?.focus();
+    const handleKeyDown = event => {
+      if (event.key === 'Escape' && !busy) onCancel();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      previousFocus?.focus?.();
+    };
+  }, [open, busy, onCancel]);
   if (!open) return null;
 
   return (
     <div className="dialogBackdrop" role="presentation" onMouseDown={event => event.target === event.currentTarget && !busy && onCancel()}>
       <section className="confirmDialog" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-message">
+        <span className="confirmDialogHandle" aria-hidden="true" />
         <h2 id="confirm-title">{title}</h2>
         <p id="confirm-message">{message}</p>
         <div className="dialogActions">

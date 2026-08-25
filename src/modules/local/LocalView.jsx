@@ -11,7 +11,6 @@ import {
 } from '../location/liveTracking';
 
 import {
-  UserCheck,
   Play,
   LocateFixed,
   Video,
@@ -33,6 +32,8 @@ import ConfirmDialog from '../../components/ConfirmDialog';
 import ToastRegion from '../../components/ToastRegion';
 
 import SessionWorkspace from '../session/SessionWorkspace';
+import LocalAvailabilityPanel from './components/LocalAvailabilityPanel';
+import IncomingRequestList from './components/IncomingRequestList';
 
 import {
   getRequests,
@@ -1301,206 +1302,17 @@ export default function LocalView({ state, setState }) {
     <div className="stack appView localView">
       <ToastRegion toast={toast} onDismiss={() => setToast(null)} />
 
-      <section className={`hero compact localAvailability ${isOnline ? 'isOnline' : 'isOffline'}`}>
+      <LocalAvailabilityPanel
+        isOnline={isOnline}
+        loading={onlineLoading}
+        geoStatus={geoStatus}
+        location={local.location}
+        onGoOnline={handleGoOnline}
+        onGoOffline={handleGoOffline}
+        onUpdateLocation={updateLocation}
+      />
 
-        <p className="eyebrow">
-          Tu disponibilidad
-        </p>
-
-        <h1>
-          {isOnline ? 'Estás disponible' : 'Empieza cuando quieras'}
-        </h1>
-
-        <p>
-          {isOnline ? 'Recibirás solicitudes cercanas en tiempo real.' : 'Conéctate para recibir solicitudes cerca de ti.'}
-        </p>
-
-        {onlineLoading ? (
-
-          <p className="muted">
-            Comprobando disponibilidad...
-          </p>
-
-        ) : isOnline ? (
-
-          <div className="localStatusPanel">
-
-            <p className="statusLine availabilityBadge">
-              <span /> Disponible
-            </p>
-
-            <div className="localStatusActions"><button
-              className="secondary"
-              onClick={
-                handleGoOffline
-              }
-            >
-              Desconectarme
-            </button>
-
-            <button
-              onClick={
-                updateLocation
-              }
-            >
-              <LocateFixed
-                size={16}
-              />
-
-              Actualizar ubicación
-            </button></div>
-
-            {geoStatus && (
-              <small>
-                {geoStatus}
-              </small>
-            )}
-
-            {local.location && (
-
-              <small>
-                Lat{' '}
-                {local.location.lat.toFixed(
-                  6
-                )}
-                {' · '}
-                Lng{' '}
-                {local.location.lng.toFixed(
-                  6
-                )}
-              </small>
-            )}
-
-            {/* MAPA DEL LOCAL ONLINE */}
-
-            {local.location && (
-
-              <div
-                className="activeRequestMap"
-                style={{
-                  marginTop:
-                    '16px',
-                  width:
-                    '100%',
-                }}
-              >
-                <LiveTrackingMap
-                  localLocation={
-                    local.location
-                  }
-                />
-              </div>
-            )}
-
-          </div>
-
-        ) : (
-
-          <div className="localStatusPanel">
-
-            <p className="statusLine availabilityBadge offline">
-              <span /> No disponible
-            </p>
-
-            <button
-              className="primary"
-              onClick={
-                handleGoOnline
-              }
-            >
-              <LocateFixed
-                size={16}
-              />
-
-              Empezar a recibir solicitudes
-            </button>
-
-          </div>
-        )}
-
-      </section>
-
-      {isOnline ? (
-
-        <section className="card">
-
-          <div className="sectionHeader"><div><p className="stepLabel">Cerca de ti</p><h2>Solicitudes disponibles</h2></div><span className="requestCount">{incoming.length}</span></div>
-
-          {incoming.length ===
-          0 ? (
-
-            <p className="muted">
-              No hay solicitudes
-              compatibles ahora.
-            </p>
-
-          ) : (
-
-            <div className="incomingList">{incoming.map(
-              request => (
-
-                <article
-                  className="requestCard incomingRequest"
-                  key={request.id}
-                >
-
-                  <div>
-
-                    <b>
-                      {request.zoneName}
-                    </b>
-
-                    <span>
-                      {request.duration}{' '}
-                      min ·{' '}
-                      {request.price} € ·{' '}
-                      {formatDistance(
-                        request.distanceKm
-                      )}{' '}
-                      ·{' '}
-                      {request.etaMinutes ??
-                        '—'}{' '}
-                      min
-                    </span>
-
-                    <small>
-                      {request.notes}
-                    </small>
-
-                  </div>
-
-                  <button className="primary"
-                    onClick={() =>
-                      accept(
-                        request
-                      )
-                    }
-                  >
-                    <UserCheck
-                      size={16}
-                    />
-
-                    Aceptar
-                  </button>
-
-                </article>
-              )
-            )}</div>
-          )}
-
-        </section>
-
-      ) : (
-
-        <section className="card">
-
-          <p className="muted">
-            Conéctate como Local
-            para recibir solicitudes.
-          </p>
-
-        </section>
-      )}
+      <IncomingRequestList isOnline={isOnline} requests={incoming} onAccept={accept} />
 
     </div>
   );
