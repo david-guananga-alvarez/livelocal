@@ -10,30 +10,20 @@ import {
   stopOptimizedTracking,
 } from '../location/liveTracking';
 
-import {
-  Play,
-  LocateFixed,
-  Video,
-} from 'lucide-react';
-
 import { zones } from '../../data/seed';
-import { statusLabel } from '../matching/matching';
 
 import {
   distanceKm,
   estimateEtaMinutes,
-  formatDistance,
   getBrowserLocation,
 } from '../location/location';
 
-import LiveTrackingMap from '../../components/LiveTrackingMap';
-import ServiceProgress from '../../components/ServiceProgress';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import ToastRegion from '../../components/ToastRegion';
-
-import SessionWorkspace from '../session/SessionWorkspace';
 import LocalAvailabilityPanel from './components/LocalAvailabilityPanel';
 import IncomingRequestList from './components/IncomingRequestList';
+import LocalActiveService from './components/LocalActiveService';
+import '../../styles/local.css';
 
 import {
   getRequests,
@@ -812,54 +802,31 @@ export default function LocalView({ state, setState }) {
   // ACEPTAR
   // --------------------------------------------------
 
-  async function accept(
-    request
-  ) {
+  async function accept(request) {
     if (mine) {
-      notify(
-        'Ya tienes un servicio activo'
-      );
+      notify('Ya tienes un servicio activo');
       return;
     }
 
     try {
-      await acceptRequest(
-        request.id,
-        local.id
-      );
+      await acceptRequest(request.id, local.id);
 
       setState(prev => ({
         ...prev,
-
-        requests:
-          prev.requests.map(
-            current =>
-              current.id ===
-              request.id
-                ? {
-                    ...current,
-
-                    status:
-                      'matched',
-
-                    localId:
-                      local.id,
-
-                    acceptedAt:
-                      new Date().toLocaleString(),
-                  }
-                : current
-          ),
+        requests: prev.requests.map(current =>
+          current.id === request.id
+            ? {
+                ...current,
+                status: 'matched',
+                localId: local.id,
+                acceptedAt: new Date().toLocaleString(),
+              }
+            : current
+        ),
       }));
     } catch (error) {
-      console.error(
-        'Error aceptando petición:',
-        error
-      );
-
-      notify(
-        'No se pudo aceptar la petición'
-      );
+      console.error('Error aceptando petición:', error);
+      notify('No se pudo aceptar la petición');
     }
   }
 
@@ -867,41 +834,21 @@ export default function LocalView({ state, setState }) {
   // matched -> on_the_way
   // --------------------------------------------------
 
-  async function startRoute(
-    request
-  ) {
+  async function startRoute(request) {
     try {
-      await updateRequestStatus(
-        request.id,
-        'on_the_way'
-      );
+      await updateRequestStatus(request.id, 'on_the_way');
 
       setState(prev => ({
         ...prev,
-
-        requests:
-          prev.requests.map(
-            current =>
-              current.id ===
-              request.id
-                ? {
-                    ...current,
-
-                    status:
-                      'on_the_way',
-                  }
-                : current
-          ),
+        requests: prev.requests.map(current =>
+          current.id === request.id
+            ? { ...current, status: 'on_the_way' }
+            : current
+        ),
       }));
     } catch (error) {
-      console.error(
-        'Error iniciando desplazamiento:',
-        error
-      );
-
-      notify(
-        'No se pudo iniciar el desplazamiento'
-      );
+      console.error('Error iniciando desplazamiento:', error);
+      notify('No se pudo iniciar el desplazamiento');
     }
   }
 
@@ -909,41 +856,21 @@ export default function LocalView({ state, setState }) {
   // on_the_way -> arrived
   // --------------------------------------------------
 
-  async function markArrived(
-    request
-  ) {
+  async function markArrived(request) {
     try {
-      await updateRequestStatus(
-        request.id,
-        'arrived'
-      );
+      await updateRequestStatus(request.id, 'arrived');
 
       setState(prev => ({
         ...prev,
-
-        requests:
-          prev.requests.map(
-            current =>
-              current.id ===
-              request.id
-                ? {
-                    ...current,
-
-                    status:
-                      'arrived',
-                  }
-                : current
-          ),
+        requests: prev.requests.map(current =>
+          current.id === request.id
+            ? { ...current, status: 'arrived' }
+            : current
+        ),
       }));
     } catch (error) {
-      console.error(
-        'Error marcando llegada:',
-        error
-      );
-
-      notify(
-        'No se pudo marcar la llegada'
-      );
+      console.error('Error marcando llegada:', error);
+      notify('No se pudo marcar la llegada');
     }
   }
 
@@ -951,45 +878,25 @@ export default function LocalView({ state, setState }) {
   // CANCELAR
   // --------------------------------------------------
 
-  async function cancelService(
-    request
-  ) {
+  async function cancelService(request) {
     setActionBusy(true);
 
     try {
-      await updateRequestStatus(
-        request.id,
-        'cancelled'
-      );
+      await updateRequestStatus(request.id, 'cancelled');
 
       setState(prev => ({
         ...prev,
-
-        requests:
-          prev.requests.map(
-            current =>
-              current.id ===
-              request.id
-                ? {
-                    ...current,
-
-                    status:
-                      'cancelled',
-                  }
-                : current
-          ),
+        requests: prev.requests.map(current =>
+          current.id === request.id
+            ? { ...current, status: 'cancelled' }
+            : current
+        ),
       }));
       setCancelTarget(null);
       setToast({ message: 'Servicio cancelado.', type: 'success' });
     } catch (error) {
-      console.error(
-        'Error cancelando servicio:',
-        error
-      );
-
-      notify(
-        'No se pudo cancelar el servicio'
-      );
+      console.error('Error cancelando servicio:', error);
+      notify('No se pudo cancelar el servicio');
     } finally {
       setActionBusy(false);
     }
@@ -999,41 +906,21 @@ export default function LocalView({ state, setState }) {
   // arrived -> in_progress
   // --------------------------------------------------
 
-  async function startSession(
-    request
-  ) {
+  async function startSession(request) {
     try {
-      await updateRequestStatus(
-        request.id,
-        'in_progress'
-      );
+      await updateRequestStatus(request.id, 'in_progress');
 
       setState(prev => ({
         ...prev,
-
-        requests:
-          prev.requests.map(
-            current =>
-              current.id ===
-              request.id
-                ? {
-                    ...current,
-
-                    status:
-                      'in_progress',
-                  }
-                : current
-          ),
+        requests: prev.requests.map(current =>
+          current.id === request.id
+            ? { ...current, status: 'in_progress' }
+            : current
+        ),
       }));
     } catch (error) {
-      console.error(
-        'Error iniciando sesión:',
-        error
-      );
-
-      notify(
-        'No se pudo iniciar la sesión'
-      );
+      console.error('Error iniciando sesión:', error);
+      notify('No se pudo iniciar la sesión');
     }
   }
 
@@ -1042,52 +929,28 @@ export default function LocalView({ state, setState }) {
   // --------------------------------------------------
 
   async function updateLocation() {
-    setGeoStatus(
-      'Pidiendo permiso de ubicación...'
-    );
+    setGeoStatus('Pidiendo permiso de ubicación...');
 
     try {
-      const location =
-        await getBrowserLocation();
-
-      lastTrackedLocationRef.current =
-        location;
+      const location = await getBrowserLocation();
+      lastTrackedLocationRef.current = location;
 
       setState(prev => ({
         ...prev,
-
-        locals:
-          prev.locals.map(
-            (
-              storedLocal,
-              index
-            ) =>
-              index === 0
-                ? {
-                    ...storedLocal,
-                    location,
-                  }
-                : storedLocal
-          ),
+        locals: prev.locals.map((storedLocal, index) =>
+          index === 0 ? { ...storedLocal, location } : storedLocal
+        ),
       }));
 
       if (isOnline) {
-        await updateLocalLocation(
-          user.id,
-          location
-        );
+        await updateLocalLocation(user.id, location);
       }
 
       setGeoStatus(
-        `Ubicación actualizada · precisión ${Math.round(
-          location.accuracy
-        )} m`
+        `Ubicación actualizada · precisión ${Math.round(location.accuracy)} m`
       );
     } catch (error) {
-      setGeoStatus(
-        error?.message ||
-          'No se pudo obtener la ubicación'
-      );
+      setGeoStatus(error?.message || 'No se pudo obtener la ubicación');
     }
   }
 
@@ -1097,199 +960,21 @@ export default function LocalView({ state, setState }) {
 
   if (mine) {
     return (
-      <div className="stack appView localView">
+      <div className="stack appView localView hasActiveService">
         <ToastRegion toast={toast} onDismiss={() => setToast(null)} />
         <ConfirmDialog open={Boolean(cancelTarget)} title="Cancelar servicio" message="¿Quieres cancelar este servicio activo?" confirmLabel="Sí, cancelar" busy={actionBusy} onCancel={() => setCancelTarget(null)} onConfirm={() => cancelService(cancelTarget)} />
-
-        <section className="hero compact">
-
-          <p className="eyebrow">
-            Local
-          </p>
-
-          <h1>
-            {statusLabel(
-              mine.status
-            )}
-          </h1>
-
-          <p>
-            {mine.zoneName} ·{' '}
-            {mine.duration} min ·{' '}
-            {mine.price} € ·{' '}
-            {formatDistance(
-              mine.distanceKm
-            )}
-          </p>
-          <ServiceProgress status={mine.status} />
-
-          {isOnline &&
-            local.location && (
-
-              <small>
-                GPS compartido · Lat{' '}
-                {local.location.lat.toFixed(
-                  6
-                )}
-                {' · '}
-                Lng{' '}
-                {local.location.lng.toFixed(
-                  6
-                )}
-                {' · '}
-                precisión{' '}
-                {Math.round(
-                  local.location
-                    .accuracy ?? 0
-                )}{' '}
-                m
-              </small>
-            )}
-
-          {geoStatus && (
-            <small>
-              {geoStatus}
-            </small>
-          )}
-
-          {/* MAPA DEL LOCAL */}
-
-          {mine.status !== 'in_progress' &&
-            isOnline &&
-            local.location && (
-
-              <div
-                className="activeRequestMap"
-                style={{
-                  marginTop:
-                    '18px',
-                  width:
-                    '100%',
-                }}
-              >
-                <LiveTrackingMap
-                  localLocation={
-                    local.location
-                  }
-                />
-              </div>
-            )}
-
-          {/* MATCHED */}
-
-          {mine.status ===
-            'matched' && (
-
-            <button
-              onClick={() =>
-                startRoute(
-                  mine
-                )
-              }
-            >
-              <Play size={16} />
-
-              Iniciar desplazamiento
-            </button>
-          )}
-
-          {/* ON THE WAY */}
-
-          {mine.status ===
-            'on_the_way' && (
-
-            <div className="stack">
-
-              <p className="statusLine">
-                Te estás desplazando
-                hacia el punto
-                solicitado.
-              </p>
-
-              <button
-                onClick={() =>
-                  markArrived(
-                    mine
-                  )
-                }
-              >
-                <LocateFixed
-                  size={16}
-                />
-
-                He llegado
-              </button>
-
-            </div>
-          )}
-
-          {/* ARRIVED */}
-
-          {mine.status ===
-            'arrived' && (
-
-            <div className="stack">
-
-              <p className="statusLine">
-                Has llegado al punto
-                solicitado.
-              </p>
-
-              <p className="hint">
-                Tu ubicación continúa
-                compartiéndose mientras
-                estés Online.
-              </p>
-
-              <button
-                onClick={() =>
-                  startSession(
-                    mine
-                  )
-                }
-              >
-                <Video
-                  size={16}
-                />
-
-                Entrar en sesión
-              </button>
-
-            </div>
-          )}
-
-          {/* CANCELACIÓN */}
-
-          {[
-            'matched',
-            'on_the_way',
-          ].includes(
-            mine.status
-          ) && (
-
-            <button
-              className="danger"
-              onClick={() => setCancelTarget(mine)}
-            >
-              Cancelar servicio
-            </button>
-          )}
-
-        </section>
-
-        {/* SESIÓN */}
-
-        {mine.status ===
-          'in_progress' && (
-
-          <SessionWorkspace
-            request={mine}
-            state={state}
-            setState={setState}
-            role="Local"
-          />
-        )}
-
+        <LocalActiveService
+          request={mine}
+          isOnline={isOnline}
+          location={local.location}
+          geoStatus={geoStatus}
+          state={state}
+          setState={setState}
+          onStartRoute={startRoute}
+          onMarkArrived={markArrived}
+          onStartSession={startSession}
+          onCancel={setCancelTarget}
+        />
       </div>
     );
   }

@@ -1,0 +1,103 @@
+:root {
+  --brand: #1762ff;
+  --brand-dark: #0b2b66;
+  --accent: #7058e8;
+  --ink: #111827;
+  --ink-strong: #080d18;
+  --muted: #667085;
+  --line: #e3e7ee;
+  --line-strong: #d1d7e0;
+  --surface: #fff;
+  --surface-soft: #f7f8fa;
+  --canvas: #f2f4f7;
+  --brand-50: #f0f5ff;
+  --brand-100: #dfeaff;
+  --brand-200: #bfd4ff;
+  --brand-500: #2d72ff;
+  --brand-600: #1762ff;
+  --brand-700: #124ecc;
+  --ink-950: #080d18;
+  --ink-900: #111827;
+  --ink-800: #1f2937;
+  --ink-700: #344054;
+  --ink-600: #475467;
+  --ink-500: #667085;
+  --success: #07845e;
+  --success-soft: #e9f8f2;
+  --warning: #9a5b00;
+  --warning-soft: #fff5df;
+  --danger: #d52f45;
+  --danger-soft: #fff0f2;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-pill: 999px;
+  --shadow-sm: 0 1px 2px rgba(8, 13, 24, .04), 0 2px 6px rgba(8, 13, 24, .04);
+  --shadow-md: 0 10px 30px rgba(8, 13, 24, .08);
+  --shadow-lg: 0 24px 70px rgba(8, 13, 24, .12);
+  --focus-ring: 0 0 0 3px rgba(23, 98, 255, .22);
+  --motion-fast: 150ms;
+  --motion-normal: 220ms;
+  --z-sticky: 30;
+  --z-toast: 80;
+  --z-dialog: 100;
+}
+
+html { background: var(--canvas); }
+body {
+  color: var(--ink);
+  background: var(--canvas);
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+}
+
+.srOnly {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+button { border-radius: var(--radius-md); font-weight: 750; letter-spacing: -.01em; }
+button, [role="tab"] { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+button:hover:not(:disabled) { transform: none; }
+input, select, textarea { border-radius: var(--radius-md); }
+
+.uiButton { min-height: 44px; padding: 9px 15px; border-radius: var(--radius-md); box-shadow: none; }
+.uiButton-sm { min-height: 36px; padding: 6px 11px; }
+.uiButton-lg { min-height: 48px; padding: 12px 18px; }
+.uiButton-primary { background: var(--brand); }
+.uiButton-primary:hover:not(:disabled) { background: #0f54e6; box-shadow: 0 8px 20px rgba(23, 98, 255, .2); }
+.uiButton-secondary { border-color: var(--line-strong); box-shadow: none; }
+.uiCard { padding: var(--space-5); border-color: var(--line); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); }
+.uiPanel { padding: var(--space-5); border-color: var(--line); border-radius: var(--radius-lg); box-shadow: var(--shadow-md); }
+.uiStatusBadge { padding: 5px 9px; font-size: 11px; letter-spacing: .01em; }
+.uiTabBar { padding: 3px; border-radius: var(--radius-md); background: #edf0f4; }
+.uiTabBar button { min-height: 38px; padding: 7px 11px; border-radius: 9px; }
+.uiEmptyState { border-radius: var(--radius-lg); background: var(--surface-soft); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; }
+}
+
+@media (hover: none) {
+  button:hover:not(:disabled) { transform: none; box-shadow: none; }
+}
+
+@media (forced-colors: active) {
+  button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, a:focus-visible, [tabindex]:focus-visible { outline: 2px solid Highlight; }
+  .servicePulse, .sessionLiveDot, .immersiveSessionMeta i, .chatPresence i { forced-color-adjust: none; }
+}

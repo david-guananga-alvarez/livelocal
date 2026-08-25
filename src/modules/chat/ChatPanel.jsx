@@ -5,7 +5,7 @@ import React, {
   useState,
 } from 'react';
 
-import { Send } from 'lucide-react';
+import { AlertCircle, Send } from 'lucide-react';
 
 import { useAuth } from '../auth/AuthProvider';
 import { supabase } from '../auth/supabaseClient';
@@ -34,8 +34,11 @@ export default function ChatPanel({
 
   const [sending, setSending] =
     useState(false);
+  const [messageError, setMessageError] = useState(null);
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const isActiveRef = useRef(isActive);
   const onUnreadRef = useRef(onUnread);
+  const messagesEndRef = useRef(null);
 
   useEffect(() => {
     isActiveRef.current = isActive;
@@ -56,6 +59,7 @@ export default function ChatPanel({
     async function loadMessages() {
       try {
         setLoading(true);
+        setMessageError(null);
 
         const rows =
           await getMessages(
@@ -88,6 +92,7 @@ export default function ChatPanel({
           'Error cargando mensajes:',
           error
         );
+        setMessageError({ kind: 'load', message: 'No se pudieron cargar los mensajes.' });
       } finally {
         if (!cancelled) {
           setLoading(false);
@@ -100,7 +105,7 @@ export default function ChatPanel({
     return () => {
       cancelled = true;
     };
-  }, [requestId]);
+  }, [requestId, loadAttempt]);
 
   // --------------------------------------------------
   // REALTIME NUEVOS MENSAJES
@@ -208,11 +213,18 @@ export default function ChatPanel({
       [messages]
     );
 
+  useEffect(() => {
+    if (isActive) {
+      messagesEndRef.current?.scrollIntoView({ block: 'end' });
+    }
+  }, [isActive, orderedMessages.length]);
+
   // --------------------------------------------------
   // ENVIAR
   // --------------------------------------------------
 
-  async function handleSend() {
+  async function handleSend(event) {
+    event?.preventDefault();
     const cleanText =
       text.trim();
 
@@ -227,6 +239,7 @@ export default function ChatPanel({
 
     try {
       setSending(true);
+      setMessageError(null);
 
       const row =
         await sendMessage({
@@ -281,26 +294,18 @@ export default function ChatPanel({
         'Error enviando mensaje:',
         error
       );
-
-      alert(
-        'No se pudo enviar el mensaje'
-      );
+      setMessageError({ kind: 'send', message: 'No se pudo enviar el mensaje. Puedes volver a intentarlo.' });
     } finally {
       setSending(false);
     }
   }
 
-  function handleKeyDown(
-    event
-  ) {
-    if (
-      event.key === 'Enter' &&
-      !event.shiftKey
-    ) {
-      event.preventDefault();
-
-      handleSend();
+  function retryLastOperation() {
+    if (messageError?.kind === 'load') {
+      setLoadAttempt(current => current + 1);
+      return;
     }
+    handleSend();
   }
 
   // --------------------------------------------------
@@ -308,16 +313,18 @@ export default function ChatPanel({
   // --------------------------------------------------
 
   return (
-    <section className={`card chat ${isActive ? 'isActive' : 'isBackground'}`} aria-label="Chat de la sesión">
+    <section className={`chat ${isActive ? 'isActive' : 'isBackground'}`} aria-label="Chat de la sesión">
+      <header className="chatHeader">
+        <div>
+          <p className="stepLabel">Conversación</p>
+          <h3>Chat de sesión</h3>
+        </div>
+        <span className="chatPresence"><i aria-hidden="true" /> En directo</span>
+      </header>
 
-      <h3>
-        Chat de sesión
-      </h3>
-
-      <div className="chatBox">
-
+      <div className="chatBox" role="log" aria-live="polite" aria-relevant="additions text">
         {loading && (
-          <p className="muted">
+          <p className="chatEmpty">
             Cargando mensajes...
           </p>
         )}
@@ -326,9 +333,11 @@ export default function ChatPanel({
           orderedMessages.length ===
             0 && (
 
-          <p className="muted">
-            Aún no hay mensajes.
-          </p>
+          <div className="chatEmpty">
+            <MessageCirclePlaceholder />
+            <b>Empieza la conversación</b>
+            <span>Los mensajes aparecerán aquí en tiempo real.</span>
+          </div>
         )}
 
         {orderedMessages.map(
@@ -368,7 +377,7 @@ export default function ChatPanel({
                   {message.createdAt
                     ? new Date(
                         message.createdAt
-                      ).toLocaleTimeString()
+                      ).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                     : ''}
                 </small>
 
@@ -376,11 +385,18 @@ export default function ChatPanel({
             );
           }
         )}
-
+        <div ref={messagesEndRef} />
       </div>
 
-      <div className="chatInput">
+      {messageError && (
+        <div className="chatError" role="alert">
+          <AlertCircle size={17} aria-hidden="true" />
+          <span>{messageError.message}</span>
+          {(messageError.kind === 'load' || text.trim()) && <button type="button" onClick={retryLastOperation} disabled={sending}>Reintentar</button>}
+        </div>
+      )}
 
+      <form className="chatInput" onSubmit={handleSend}>
         <input
           value={text}
           onChange={
@@ -389,37 +405,30 @@ export default function ChatPanel({
                 event.target.value
               )
           }
-          onKeyDown={
-            handleKeyDown
-          }
           placeholder="Escribe un mensaje..."
+          aria-label="Mensaje"
+          maxLength={1000}
+          autoComplete="off"
           disabled={
             sending
           }
         />
 
-        <button
-          onClick={
-            handleSend
-          }
+        <button type="submit" aria-label={sending ? 'Enviando mensaje' : 'Enviar mensaje'}
           disabled={
             sending ||
             !text.trim()
           }
         >
 
-          <Send
-            size={16}
-          />
-
-          {sending
-            ? 'Enviando...'
-            : 'Enviar'}
-
+          <Send size={18} aria-hidden="true" />
+          <span>{sending ? 'Enviando...' : 'Enviar'}</span>
         </button>
-
-      </div>
-
+      </form>
     </section>
   );
+}
+
+function MessageCirclePlaceholder() {
+  return <span className="chatEmptyIcon" aria-hidden="true">•••</span>;
 }

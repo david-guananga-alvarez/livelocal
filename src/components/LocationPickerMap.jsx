@@ -99,7 +99,7 @@ async function reverseGeocode(position) {
   return result.display_name || 'Punto seleccionado en el mapa';
 }
 
-export default function LocationPickerMap({ value, address, onChange }) {
+export default function LocationPickerMap({ value, address, onChange, variant = 'default' }) {
   const [query, setQuery] = useState(address || '');
   const [results, setResults] = useState([]);
   const [status, setStatus] = useState('idle');
@@ -203,7 +203,7 @@ export default function LocationPickerMap({ value, address, onChange }) {
   }
 
   return (
-    <div className="locationPicker">
+    <div className={`locationPicker locationPicker-${variant}`}>
       <form className="addressSearch" onSubmit={searchAddress}>
         <label htmlFor="request-address">Dirección de destino</label>
         <div className="addressSearchRow">
@@ -335,19 +335,15 @@ export default function LocationPickerMap({ value, address, onChange }) {
         </MapContainer>
       </div>
 
-      <small className="muted">
-        {status === 'resolving'
-          ? 'Obteniendo la dirección del punto…'
-          : 'También puedes pulsar el mapa o arrastrar el marcador.'}
-      </small>
-      <small className="muted">
-        Búsqueda de direcciones © OpenStreetMap contributors
-      </small>
-      {showActivities && (
+      <div className="locationPickerCredits">
         <small className="muted">
-          Actividades: Ajuntament de Barcelona · Open Data BCN (CC BY 4.0)
+          {status === 'resolving'
+            ? 'Obteniendo la dirección del punto…'
+            : 'Pulsa el mapa o arrastra el marcador.'}
         </small>
-      )}
+        <small className="muted">Búsqueda © OpenStreetMap contributors</small>
+        {showActivities && <small className="muted">Actividades: Ajuntament de Barcelona · Open Data BCN (CC BY 4.0)</small>}
+      </div>
     </div>
   );
 }

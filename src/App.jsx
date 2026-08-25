@@ -8,6 +8,8 @@ import LocalView from './modules/local/LocalView';
 import AdminView from './modules/admin/AdminView';
 import { LoginScreen, UserMenu, useAuth } from './modules/auth';
 import './styles/app.css';
+import './styles/tokens.css';
+import './styles/shell.css';
 
 export default function App(){
  const { user, loading, isAuthenticated, hasSupabaseConfig, role, profileLoading, profileError, reloadProfile, signOut } = useAuth();
@@ -18,6 +20,12 @@ export default function App(){
  const activeRole = tab;
  const canAccessAdmin = !hasSupabaseConfig || role === 'admin';
  const isOnline = useNetworkStatus();
+ const immersiveRequest = useMemo(() => {
+   if (activeRole === 'admin') return null;
+   return state.requests.find(request => request.status === 'in_progress' && (
+     activeRole === 'client' ? request.clientId === user?.id : request.localId === user?.id
+   )) || null;
+ }, [activeRole, state.requests, user?.id]);
 
  useEffect(()=>{ if(isAuthenticated) setStateRaw(loadState(userId)); }, [isAuthenticated, userId]);
 
@@ -50,7 +58,7 @@ export default function App(){
  if(hasSupabaseConfig && profileError) return <AppStateScreen type="error" title="No hemos podido abrir tu perfil" message={profileError} primaryAction={{ label: 'Reintentar', onClick: reloadProfile }} secondaryAction={{ label: 'Cerrar sesión', onClick: signOut }}/>;
 
  return (
-   <AppShell activeRole={activeRole} canAccessAdmin={canAccessAdmin} onRoleChange={setTab} userMenu={<UserMenu/>} isOnline={isOnline}>
+   <AppShell activeRole={activeRole} canAccessAdmin={canAccessAdmin} onRoleChange={setTab} userMenu={<UserMenu/>} isOnline={isOnline} immersive={Boolean(immersiveRequest)} sessionLabel={immersiveRequest?.zoneName}>
      {activeRole==='client'&&<ClientView state={state} setState={setState}/>} {activeRole==='local'&&<LocalView state={state} setState={setState}/>} {activeRole==='admin'&&<AdminView state={state} setState={setState}/>}
    </AppShell>
  );

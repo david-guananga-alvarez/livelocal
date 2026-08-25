@@ -1,0 +1,138 @@
+.clientView { width: min(1440px, 100%); }
+.clientView.isBooking { max-width: none; padding: 16px 24px 32px; }
+.clientView.isBooking .clientBookingFlow { padding: 0; overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius-xl); background: var(--surface); box-shadow: var(--shadow-md); }
+.clientMapFirst { min-height: min(760px, calc(100dvh - 98px)); display: grid; grid-template-columns: minmax(0, 1fr) 400px; background: var(--surface); }
+.clientMapCanvas { min-width: 0; min-height: 620px; background: #e7ebf0; }
+.locationPicker-immersive { position: relative; height: 100%; min-height: inherit; overflow: hidden; }
+.locationPicker-immersive .locationPickerMap { width: 100%; height: 100%; min-height: inherit; border: 0; border-radius: 0; box-shadow: none; }
+.locationPicker-immersive .addressSearch { position: absolute; top: 16px; left: 16px; z-index: 710; width: min(440px, calc(100% - 32px)); padding: 10px; border: 1px solid rgba(209,215,224,.9); border-radius: var(--radius-lg); background: rgba(255,255,255,.96); box-shadow: 0 14px 38px rgba(8,13,24,.14); backdrop-filter: blur(14px); }
+.locationPicker-immersive .addressSearch > label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.locationPicker-immersive .addressSearchRow { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 8px; }
+.locationPicker-immersive .addressSearchRow input { min-width: 0; min-height: 44px; border: 0; background: #f1f3f6; }
+.locationPicker-immersive .addressSearchRow button { min-height: 44px; padding-inline: 16px; background: var(--ink-strong); }
+.locationPicker-immersive .addressResults { max-height: 260px; margin: 8px 0 0; overflow-y: auto; border-top: 1px solid var(--line); background: var(--surface); }
+.locationPicker-immersive .addressResults button { color: var(--ink); background: transparent; border-radius: 0; }
+.locationPicker-immersive .activityLayerControl { position: absolute; top: 84px; left: 16px; z-index: 705; width: fit-content; max-width: calc(100% - 32px); margin: 0; padding: 9px 12px; border: 1px solid rgba(209,215,224,.9); border-radius: var(--radius-pill); background: rgba(255,255,255,.96); box-shadow: var(--shadow-sm); backdrop-filter: blur(12px); }
+.locationPicker-immersive .activityLayerControl label { display: flex; grid: none; align-items: center; gap: 8px; font-size: 12px; }
+.locationPicker-immersive .activityLayerControl input { width: 16px; height: 16px; padding: 0; accent-color: var(--brand); }
+.locationPicker-immersive .activityLayerControl small { margin-left: 4px; font-size: 10px; }
+.locationPicker-immersive .activityTimeFilters { position: absolute; top: 132px; left: 16px; z-index: 706; width: min(440px, calc(100% - 32px)); max-height: min(42vh, 330px); margin: 0; padding: 12px; overflow-y: auto; border: 1px solid var(--line); border-radius: var(--radius-lg); background: rgba(255,255,255,.98); box-shadow: var(--shadow-md); }
+.locationPicker-immersive .activityTimePresets { flex-wrap: nowrap; overflow-x: auto; }
+.locationPicker-immersive .activityTimePresets button { flex: 1 0 auto; min-height: 34px; padding: 6px 9px; }
+.locationPickerCredits { position: absolute; right: 10px; bottom: 22px; left: 10px; z-index: 500; display: flex; justify-content: center; flex-wrap: wrap; gap: 3px 10px; pointer-events: none; }
+.locationPickerCredits small { padding: 3px 6px; color: #475467; background: rgba(255,255,255,.86); border-radius: 5px; font-size: 9px; line-height: 1.2; backdrop-filter: blur(8px); }
+.clientMapSheet { position: relative; z-index: 2; display: flex; flex-direction: column; gap: var(--space-5); padding: 28px; border-left: 1px solid var(--line); background: var(--surface); }
+.clientMapSheet .bookingHeader { padding-bottom: var(--space-4); border-bottom: 1px solid var(--line); }
+.clientBookingFlow .bookingHeader { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); }
+.clientBookingFlow .bookingHeader h2 { margin: 0; color: var(--ink-strong); font-size: clamp(22px,3vw,30px); line-height: 1.08; letter-spacing: -.045em; }
+.clientBookingFlow .stepLabel { margin: 0 0 6px; color: var(--brand); }
+.clientBookingFlow .bookingSteps { display: flex; gap: 6px; }
+.clientBookingFlow .bookingSteps span { width: 25px; height: 25px; display: grid; place-items: center; color: var(--muted); background: #eef1f5; border-radius: 50%; font-size: 11px; font-weight: 850; }
+.clientBookingFlow .bookingSteps span.active { color: #fff; background: var(--brand); }
+.clientMapSheet .bookingIntro { display: grid; justify-items: start; gap: 8px; }
+.clientMapSheet .bookingIntro h3 { margin: 2px 0 0; color: var(--ink-strong); font-size: 23px; line-height: 1.12; letter-spacing: -.035em; }
+.clientMapSheet .bookingIntro p { margin: 0; font-size: 14px; }
+.clientMapSheet .selectedAddress { display: grid; grid-template-columns: auto minmax(0,1fr); align-items: start; gap: 10px; margin: 0; padding: 13px; color: var(--ink); border: 1px solid var(--brand-200); border-radius: var(--radius-md); background: var(--brand-50); }
+.clientMapSheet .selectedAddress svg { color: var(--brand); }
+.clientMapSheet .selectedAddress div { min-width: 0; display: grid; gap: 5px; }
+.clientMapSheet .selectedAddress b { display: -webkit-box; overflow: hidden; font-size: 13px; line-height: 1.35; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
+.clientMapSheet .selectedAddress small { color: var(--brand-700); font-weight: 750; }
+.clientDestinationHint { margin: 0; padding: 13px; color: var(--muted); border: 1px dashed var(--line-strong); border-radius: var(--radius-md); background: var(--surface-soft); font-size: 13px; }
+.clientMapSheet .bookingNext { margin-top: auto; }
+
+.clientBookingFlow:not(.clientBookingStep-1) { width: min(820px,100%); margin: 20px auto 0; padding: 26px; }
+.clientBookingFlow:not(.clientBookingStep-1) > .bookingHeader { padding-bottom: 18px; border-bottom: 1px solid var(--line); }
+.clientBookingFlow .bookingPanel { display: grid; gap: var(--space-4); padding-top: var(--space-5); }
+.clientDestinationSummary { display: grid; grid-template-columns: auto minmax(0,1fr) auto; align-items: center; margin: 20px 0 0; padding: 13px; color: var(--ink); border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface-soft); }
+.clientDestinationSummary > svg { color: var(--brand); }
+.clientDestinationSummary .textButton { align-self: center; margin: 0; color: var(--brand); }
+.clientDetailsPanel .bookingDetails { margin: 0; grid-template-columns: minmax(180px,.6fr) minmax(0,1.4fr); }
+.clientDetailsPanel label { color: var(--ink-700); font-size: 13px; }
+.clientDetailsPanel textarea { min-height: 112px; resize: vertical; }
+.clientBookingFlow .bookingActions { display: grid; grid-template-columns: minmax(110px,.55fr) minmax(180px,1fr); gap: var(--space-3); }
+.clientConfirmationPanel .requestSummary { gap: 8px; margin: 0; padding: 18px; border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--surface-soft); }
+.clientConfirmationPanel .requestSummary b { font-size: 18px; line-height: 1.3; }
+
+@media (max-width: 900px) {
+  .clientView.isBooking { padding: 12px; }
+  .clientMapFirst { min-height: 0; display: flex; flex-direction: column; }
+  .clientMapCanvas { min-height: 58dvh; }
+  .clientMapSheet { margin-top: -22px; padding: 22px 18px 18px; border: 0; border-radius: var(--radius-xl) var(--radius-xl) 0 0; box-shadow: 0 -12px 32px rgba(8,13,24,.1); }
+  .clientMapSheet .bookingHeader { padding-bottom: 14px; }
+  .clientMapSheet .bookingNext { position: sticky; bottom: calc(74px + env(safe-area-inset-bottom)); z-index: 6; }
+  .locationPicker-immersive .addressSearch { top: 10px; left: 10px; width: calc(100% - 20px); }
+  .locationPicker-immersive .activityLayerControl { top: 78px; left: 10px; max-width: calc(100% - 20px); }
+  .locationPicker-immersive .activityTimeFilters { top: 126px; left: 10px; width: calc(100% - 20px); }
+  .clientBookingFlow:not(.clientBookingStep-1) { margin-top: 0; padding: 20px 18px; }
+}
+
+@media (max-width: 560px) {
+  .clientView.isBooking { padding: 0; }
+  .clientView.isBooking .clientBookingFlow { border-inline: 0; border-radius: 0; box-shadow: none; }
+  .clientMapCanvas { min-height: 56dvh; }
+  .clientBookingFlow .bookingHeader h2 { font-size: 22px; }
+  .clientMapSheet .bookingIntro h3 { font-size: 21px; }
+  .locationPicker-immersive .addressSearchRow { grid-template-columns: minmax(0,1fr) 78px; }
+  .locationPicker-immersive .addressSearchRow button { padding-inline: 10px; }
+  .locationPicker-immersive .activityLayerControl { max-width: calc(100% - 76px); }
+  .locationPicker-immersive .activityLayerControl small { display: none; }
+  .clientDestinationSummary { grid-template-columns: auto minmax(0,1fr); align-items: start; }
+  .clientDestinationSummary .textButton { grid-column: 2; justify-self: start; }
+  .clientDetailsPanel .bookingDetails { grid-template-columns: 1fr; }
+  .clientBookingFlow .bookingActions { grid-template-columns: .7fr 1.3fr; }
+}
+
+.clientView.hasActiveService { max-width: 1440px; padding: 18px 24px 32px; }
+.clientActiveServices { display: grid; gap: var(--space-4); }
+.activeServicesTitle { display: flex; align-items: end; justify-content: space-between; gap: var(--space-4); padding-inline: 2px; }
+.activeServicesTitle .stepLabel { margin: 0 0 4px; }
+.activeServicesTitle h1 { margin: 0; color: var(--ink-strong); font-size: clamp(25px,4vw,36px); letter-spacing: -.045em; }
+.clientServiceSurface { overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius-xl); background: var(--surface); box-shadow: var(--shadow-sm); }
+.serviceSummaryHeader { min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: var(--space-5); padding: 18px 20px; border-bottom: 1px solid var(--line); }
+.serviceSummaryAddress { min-width: 0; display: grid; grid-template-columns: auto minmax(0,1fr); align-items: start; gap: 10px; }
+.serviceSummaryAddress > svg { margin-top: 3px; color: var(--brand); }
+.serviceSummaryAddress small { display: block; margin-bottom: 2px; color: var(--muted); font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.serviceSummaryAddress h2 { max-width: 760px; margin: 0; overflow: hidden; color: var(--ink-strong); font-size: 18px; line-height: 1.25; text-overflow: ellipsis; white-space: nowrap; }
+.serviceSummaryMeta { flex: 0 0 auto; display: flex; align-items: center; gap: 12px; }
+.serviceSummaryMeta > span:not(.uiStatusBadge) { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); font-size: 13px; }
+.serviceSummaryMeta > b { font-size: 17px; }
+.serviceProgress.isCompact { margin: 0; padding: 14px 20px 12px; border-bottom: 1px solid var(--line); background: var(--surface-soft); }
+.serviceProgress.isCompact > div span { width: 25px; height: 25px; font-size: 10px; }
+.serviceProgress.isCompact > div small { font-size: 10px; }
+.clientServicePreSession { display: grid; min-height: 0; }
+.clientServicePreSession.hasMap { min-height: 300px; grid-template-columns: 340px minmax(0,1fr); }
+.clientServiceInfo { display: flex; flex-direction: column; gap: var(--space-4); padding: 20px; }
+.serviceNotice { display: grid; grid-template-columns: auto minmax(0,1fr); gap: 10px; align-items: start; padding: 14px; color: var(--ink); border-radius: var(--radius-md); background: var(--brand-50); }
+.serviceNotice > svg { color: var(--brand); }
+.serviceNotice div { display: grid; gap: 3px; }
+.serviceNotice small { color: var(--muted); }
+.servicePulse { width: 10px; height: 10px; margin: 5px 4px; border-radius: 50%; background: var(--brand); box-shadow: 0 0 0 5px var(--brand-100); animation: servicePulse 1.5s ease infinite; }
+@keyframes servicePulse { 50% { box-shadow: 0 0 0 9px rgba(23,98,255,0); } }
+.gpsDisclosure { color: var(--muted); font-size: 12px; }
+.gpsDisclosure summary { width: fit-content; cursor: pointer; color: var(--ink-600); font-weight: 750; }
+.gpsDisclosure > div { display: flex; flex-wrap: wrap; gap: 5px 12px; margin-top: 9px; }
+.gpsDisclosure span { white-space: nowrap; }
+.serviceCancelButton { width: fit-content; margin-top: auto; padding-inline: 0; color: var(--danger); }
+.clientServiceMap { min-width: 0; min-height: 360px; overflow: hidden; border-left: 1px solid var(--line); }
+.clientServiceMap > * { height: 100%; min-height: 360px; border-radius: 0; }
+.clientServiceSession { min-width: 0; }
+.clientServiceSession .sessionWorkspace { border: 0; border-radius: 0; box-shadow: none; }
+.serviceCompletionBar { display: flex; align-items: center; justify-content: flex-end; gap: var(--space-4); padding: 12px 16px; border-top: 1px solid var(--line); background: var(--surface); }
+.serviceCompletionBar span { color: var(--muted); font-size: 12px; }
+
+@media (max-width: 760px) {
+  .clientView.hasActiveService { padding: 10px; }
+  .activeServicesTitle { align-items: center; }
+  .activeServicesTitle h1 { font-size: 25px; }
+  .serviceSummaryHeader { align-items: flex-start; flex-direction: column; padding: 14px; }
+  .serviceSummaryAddress h2 { display: -webkit-box; white-space: normal; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+  .serviceSummaryMeta { width: 100%; flex-wrap: wrap; }
+  .serviceSummaryMeta > b { margin-left: auto; }
+  .clientServiceSurface .serviceProgress.isCompact { grid-template-columns: repeat(6,minmax(0,1fr)); padding-inline: 8px; overflow: hidden; }
+  .clientServiceSurface .serviceProgress.isCompact > div { min-width: 0; }
+  .clientServicePreSession.hasMap { display: flex; flex-direction: column-reverse; }
+  .clientServiceMap { min-height: 45dvh; border: 0; border-bottom: 1px solid var(--line); }
+  .clientServiceMap > * { min-height: 45dvh; }
+  .serviceCompletionBar { align-items: stretch; flex-direction: column; padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
+  .serviceCompletionBar .uiButton { width: 100%; }
+}

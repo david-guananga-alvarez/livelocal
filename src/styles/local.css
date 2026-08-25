@@ -1,0 +1,80 @@
+.localView { width: min(1440px,100%); }
+.localView:not(.hasActiveService) { padding: 18px 24px 32px; }
+.localAvailabilityPanel { overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius-xl); background: var(--surface); box-shadow: var(--shadow-sm); }
+.localAvailabilityBar { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-5); padding: 22px 24px; }
+.localAvailabilityBar .stepLabel { margin: 0 0 5px; }
+.localAvailabilityBar h1 { margin: 0; color: var(--ink-strong); font-size: clamp(24px,4vw,34px); line-height: 1.08; letter-spacing: -.045em; }
+.localAvailabilityBar p:last-child { margin: 7px 0 0; color: var(--muted); }
+.localAvailabilityPanel .localStatusPanel { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); padding: 14px 24px; border-top: 1px solid var(--line); background: var(--surface-soft); }
+.localAvailabilityPanel .localStatusActions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.localLocationStatus { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px 12px; color: var(--muted); }
+.localLocationStatus small:first-child { color: var(--ink-700); font-weight: 750; }
+.localAvailabilityMap { flex: 1 0 100%; width: 100%; min-height: 300px; margin: 0; overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius-lg); }
+.localStatusPanel.isConnected { flex-wrap: wrap; }
+.localStatusPanel.isDisconnected { justify-content: flex-start; }
+.localAvailabilityLoading { display: flex; align-items: center; gap: 10px; padding: 14px 24px; color: var(--muted); border-top: 1px solid var(--line); }
+.localAvailabilityLoading .spinner { width: 18px; height: 18px; border-color: var(--line-strong); border-top-color: var(--brand); }
+.localIncomingCard { display: grid; gap: var(--space-4); padding: 20px; }
+.localIncomingHeader { align-items: center; }
+.localIncomingHeader h2 { margin-bottom: 0; color: var(--ink-strong); font-size: 24px; letter-spacing: -.035em; }
+.incomingList { display: grid; gap: 8px; }
+.incomingRequest { margin: 0; padding: 13px 14px; border-color: var(--line); border-radius: var(--radius-md); background: var(--surface); box-shadow: none; }
+.incomingRequest:hover { border-color: var(--brand-200); box-shadow: var(--shadow-sm); transform: none; }
+.incomingRequestContent { min-width: 0; gap: 7px !important; }
+.incomingRequestContent > b { color: var(--ink-strong); font-size: 15px; line-height: 1.3; }
+.incomingRequestContent > small { color: var(--ink-500); line-height: 1.45; overflow-wrap: anywhere; }
+.incomingRequestMetrics { display: flex !important; flex-wrap: wrap; gap: 5px !important; }
+.incomingRequestMetrics span { padding: 4px 7px; color: var(--ink-600); background: var(--surface-soft); border: 1px solid var(--line); border-radius: 7px; font-size: 11px; font-weight: 800; }
+.incomingRequest > .uiButton { min-width: 104px; min-height: 44px; }
+
+.localView.hasActiveService { max-width: 1440px; padding: 18px 24px 32px; }
+.localActiveService { overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius-xl); background: var(--surface); box-shadow: var(--shadow-sm); }
+.localServiceHeader { min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: var(--space-5); padding: 18px 20px; border-bottom: 1px solid var(--line); }
+.localServiceDestination { min-width: 0; display: grid; grid-template-columns: auto minmax(0,1fr); gap: 10px; }
+.localServiceDestination > svg { margin-top: 4px; color: var(--brand); }
+.localServiceDestination .stepLabel { margin: 0 0 3px; }
+.localServiceDestination h1 { max-width: 760px; margin: 0; overflow: hidden; color: var(--ink-strong); font-size: 19px; line-height: 1.25; text-overflow: ellipsis; white-space: nowrap; }
+.localServiceMetrics { flex: 0 0 auto; display: flex; align-items: center; gap: 12px; }
+.localServiceMetrics > span:not(.uiStatusBadge) { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); font-size: 12px; }
+.localServiceOperations { display: grid; min-height: 480px; }
+.localServiceOperations.hasMap { grid-template-columns: minmax(0,1fr) 360px; }
+.localServiceMap { min-width: 0; min-height: 480px; overflow: hidden; border-right: 1px solid var(--line); }
+.localServiceMap > * { height: 100%; min-height: 480px; border-radius: 0; }
+.localServiceActionPanel { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-3); padding: 24px; }
+.localServiceActionPanel h2 { margin: 6px 0 0; color: var(--ink-strong); font-size: 25px; line-height: 1.08; letter-spacing: -.04em; }
+.localServiceActionPanel > p { margin: 0; color: var(--muted); }
+.localServiceActionPanel .gpsDisclosure { margin-top: 6px; }
+.localNextAction { width: 100%; margin-top: auto; }
+.localServiceActionPanel .serviceCancelButton { align-self: center; margin: 0; }
+.localActiveService > .sessionWorkspace { border: 0; border-radius: 0; box-shadow: none; }
+.localActiveService .serviceProgress.isCompact { margin: 0; padding: 14px 20px 12px; border-bottom: 1px solid var(--line); background: var(--surface-soft); }
+
+@media (max-width: 760px) {
+  .localView:not(.hasActiveService), .localView.hasActiveService { padding: 10px; }
+  .localAvailabilityBar { flex-direction: column-reverse; gap: 10px; padding: 18px; }
+  .localAvailabilityBar h1 { font-size: 25px; }
+  .localAvailabilityPanel .localStatusPanel { align-items: stretch; flex-direction: column; padding: 14px 18px; }
+  .localAvailabilityPanel .localStatusActions { display: grid; grid-template-columns: 1fr 1fr; }
+  .localAvailabilityPanel .localStatusActions .uiButton { width: 100%; }
+  .localLocationStatus { justify-content: flex-start; }
+  .localIncomingCard { padding: 16px; }
+  .incomingRequest { align-items: stretch; flex-direction: column; }
+  .incomingRequest > .uiButton { width: 100%; }
+  .localServiceHeader { align-items: flex-start; flex-direction: column; padding: 14px; }
+  .localServiceDestination h1 { display: -webkit-box; white-space: normal; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+  .localServiceMetrics { width: 100%; flex-wrap: wrap; }
+  .localServiceMetrics > b { margin-left: auto; }
+  .localServiceOperations.hasMap { display: flex; flex-direction: column; }
+  .localServiceMap { min-height: 46dvh; border: 0; border-bottom: 1px solid var(--line); }
+  .localServiceMap > * { min-height: 46dvh; }
+  .localServiceActionPanel { padding: 18px; }
+  .localActiveService .serviceProgress.isCompact { grid-template-columns: repeat(6,minmax(0,1fr)); padding-inline: 8px; overflow: hidden; }
+  .localActiveService .serviceProgress.isCompact > div { min-width: 0; }
+}
+
+@media (max-width: 430px) {
+  .localAvailabilityPanel .localStatusActions { grid-template-columns: 1fr; }
+  .localIncomingHeader { align-items: flex-start; flex-direction: column; }
+  .localIncomingHeader .uiStatusBadge { align-self: flex-start; }
+  .localServiceMetrics { gap: 8px; }
+}

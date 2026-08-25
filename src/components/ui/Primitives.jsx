@@ -2,9 +2,9 @@ import React from 'react';
 
 const classNames = (...values) => values.filter(Boolean).join(' ');
 
-export function Button({ variant = 'primary', size = 'md', className, loading = false, disabled, children, ...props }) {
+export function Button({ variant = 'primary', size = 'md', className, loading = false, disabled, type = 'button', children, ...props }) {
   return (
-    <button className={classNames('uiButton', `uiButton-${variant}`, `uiButton-${size}`, className)} disabled={disabled || loading} aria-busy={loading || undefined} {...props}>
+    <button type={type} className={classNames('uiButton', `uiButton-${variant}`, `uiButton-${size}`, className)} disabled={disabled || loading} aria-busy={loading || undefined} data-loading={loading || undefined} {...props}>
       {loading && <span className="uiButtonSpinner" aria-hidden="true" />}
       {children}
     </button>
@@ -27,9 +27,9 @@ export function Skeleton({ width, height, className, ...props }) {
   return <span className={classNames('uiSkeleton', className)} style={{ width, height }} aria-hidden="true" {...props} />;
 }
 
-export function EmptyState({ icon, title, description, action, className }) {
+export function EmptyState({ icon, title, description, action, className, ...props }) {
   return (
-    <div className={classNames('uiEmptyState', className)}>
+    <div className={classNames('uiEmptyState', className)} {...props}>
       {icon && <span className="uiEmptyStateIcon" aria-hidden="true">{icon}</span>}
       <strong>{title}</strong>
       {description && <p>{description}</p>}
@@ -52,7 +52,7 @@ export function TabBar({ label, value, tabs, onChange, className }) {
   };
 
   return (
-    <div className={classNames('uiTabBar', className)} role="tablist" aria-label={label}>
+    <div className={classNames('uiTabBar', className)} role="tablist" aria-label={label} aria-orientation="horizontal">
       {tabs.map((tab, index) => (
         <button key={tab.value} type="button" role="tab" aria-selected={value === tab.value} tabIndex={value === tab.value ? 0 : -1} className={value === tab.value ? 'active' : ''} onClick={() => onChange(tab.value)} onKeyDown={event => handleKeyDown(event, index)}>
           {tab.icon && <span aria-hidden="true">{tab.icon}</span>}

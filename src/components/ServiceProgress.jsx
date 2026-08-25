@@ -9,12 +9,12 @@ const steps = [
   ['completed', 'Completado'],
 ];
 
-export default function ServiceProgress({ status }) {
+export default function ServiceProgress({ status, compact = false }) {
   const current = steps.findIndex(([value]) => value === status);
   const cancelled = status === 'cancelled';
 
   return (
-    <div className={`serviceProgress${cancelled ? ' isCancelled' : ''}`} aria-label={`Progreso: ${cancelled ? 'Cancelado' : steps[current]?.[1] || status}`}>
+    <div className={`serviceProgress${compact ? ' isCompact' : ''}${cancelled ? ' isCancelled' : ''}`} aria-label={`Progreso: ${cancelled ? 'Cancelado' : steps[current]?.[1] || status}`}>
       {steps.map(([value, label], index) => (
         <div className={index < current ? 'done' : index === current ? 'current' : ''} aria-current={index === current ? 'step' : undefined} key={value}>
           <span aria-hidden="true">{index < current ? '✓' : index + 1}</span>

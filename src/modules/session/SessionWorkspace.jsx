@@ -12,6 +12,7 @@ import {
   subscribeToSessionPoints,
   updateSessionSuggestionStatus,
 } from './sessionPointsService';
+import '../../styles/session.css';
 
 const panels = [
   { id: 'map', label: 'Mapa', icon: Map },
@@ -38,8 +39,22 @@ export default function SessionWorkspace({
   const [pointError, setPointError] = useState('');
   const [savingPoint, setSavingPoint] = useState(false);
   const [progressingPointId, setProgressingPointId] = useState(null);
+  const [queueExpanded, setQueueExpanded] = useState(false);
   const touchStartRef = useRef(null);
+  const activePanelRef = useRef(activePanel);
+  const pointDialogRef = useRef(null);
+  const pointInstructionRef = useRef(null);
+  const pointDialogReturnFocusRef = useRef(null);
+  const savingPointRef = useRef(savingPoint);
   const markChatUnread = useCallback(() => setChatUnread(true), []);
+
+  useEffect(() => {
+    activePanelRef.current = activePanel;
+  }, [activePanel]);
+
+  useEffect(() => {
+    savingPointRef.current = savingPoint;
+  }, [savingPoint]);
 
   const refreshSessionPoints = useCallback(async () => {
     try {
@@ -55,14 +70,56 @@ export default function SessionWorkspace({
     refreshSessionPoints();
     return subscribeToSessionPoints(request.id, () => {
       refreshSessionPoints();
-      if (activePanel !== 'map') setMapHasUpdates(true);
+      if (activePanelRef.current !== 'map') setMapHasUpdates(true);
     });
-  }, [request?.id, request?.status, activePanel, refreshSessionPoints]);
+  }, [request?.id, request?.status, refreshSessionPoints]);
+
+  const activeSuggestion = sessionPoints.find(point => point.progressStatus === 'in_progress');
+  const pendingSuggestionCount = sessionPoints.filter(point => point.progressStatus === 'pending').length;
+
+  useEffect(() => {
+    if (role === 'Local' && (activeSuggestion?.id || pendingSuggestionCount > 0)) {
+      setQueueExpanded(true);
+    }
+  }, [role, activeSuggestion?.id, pendingSuggestionCount]);
+
+  useEffect(() => {
+    if (!pendingPoint) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const focusFrame = requestAnimationFrame(() => pointInstructionRef.current?.focus());
+    const handleDialogKeyDown = event => {
+      if (event.key === 'Escape' && !savingPointRef.current) {
+        event.preventDefault();
+        dismissPendingPoint();
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      const focusable = [...(pointDialogRef.current?.querySelectorAll('button:not(:disabled), textarea:not(:disabled), input:not(:disabled), [tabindex]:not([tabindex="-1"])') || [])];
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener('keydown', handleDialogKeyDown);
+    return () => {
+      cancelAnimationFrame(focusFrame);
+      document.removeEventListener('keydown', handleDialogKeyDown);
+      document.body.style.overflow = previousOverflow;
+      const returnTarget = pointDialogReturnFocusRef.current;
+      if (returnTarget instanceof HTMLElement && returnTarget.isConnected) returnTarget.focus();
+    };
+  }, [pendingPoint]);
 
   if (!request) return null;
 
   const activeIndex = panels.findIndex(panel => panel.id === activePanel);
-  const activeSuggestion = sessionPoints.find(point => point.progressStatus === 'in_progress');
   const orderedSuggestions = [
     ...sessionPoints.filter(point => point.progressStatus === 'in_progress'),
     ...sessionPoints.filter(point => point.progressStatus === 'pending'),
@@ -113,11 +170,13 @@ export default function SessionWorkspace({
   }
 
   function selectFreePoint(location) {
+    pointDialogReturnFocusRef.current = document.activeElement;
     setPointInstruction('');
     setPendingPoint({ type: 'point', title: 'Punto indicado', location, route: [] });
   }
 
   function selectPlace(place) {
+    pointDialogReturnFocusRef.current = document.activeElement;
     setPointInstruction(place.instruction || 'Visita este lugar');
     setPendingPoint({ type: 'place', title: place.title, location: place.location, route: [] });
   }
@@ -128,6 +187,7 @@ export default function SessionWorkspace({
 
   function prepareRoute() {
     if (draftRoute.length < 2) return;
+    pointDialogReturnFocusRef.current = document.activeElement;
     setPointInstruction('');
     setPendingPoint({
       type: 'route',
@@ -194,9 +254,9 @@ export default function SessionWorkspace({
   }
 
   return (
-    <section className="sessionWorkspace" aria-label="Sesión en directo">
+    <section className={`sessionWorkspace sessionWorkspace-${role === 'Local' ? 'local' : 'client'}`} aria-label="Sesión en directo" aria-describedby="session-navigation-hint">
       <div className="sessionWorkspaceHeader">
-        <div>
+        <div className="sessionIdentity">
           <p className="stepLabel">Sesión en directo</p>
           <h3>{request.zoneName}</h3>
         </div>
@@ -208,75 +268,89 @@ export default function SessionWorkspace({
           <button key={id} id={`session-tab-${id}`} type="button" role="tab" aria-controls={`session-panel-${id}`} aria-selected={activePanel === id} tabIndex={activePanel === id ? 0 : -1} className={activePanel === id ? 'active' : ''} onClick={() => selectPanel(id)} onKeyDown={event => handleTabKeyDown(event, index)}>
             <Icon size={18} />
             <span>{label}</span>
-            {id === 'chat' && chatUnread && <i className="unreadDot" aria-label="Mensajes nuevos" />}
-            {id === 'map' && mapHasUpdates && <i className="unreadDot" aria-label="Nuevos puntos en el mapa" />}
+            {id === 'chat' && chatUnread && <><i className="unreadDot" aria-hidden="true" /><span className="srOnly">Hay mensajes nuevos</span></>}
+            {id === 'map' && mapHasUpdates && <><i className="unreadDot" aria-hidden="true" /><span className="srOnly">Hay nuevos puntos en el mapa</span></>}
           </button>
         ))}
       </div>
 
       <div className="sessionViewport" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
         <div className="sessionTrack" style={{ transform: `translateX(-${activeIndex * 100}%)` }}>
-          <div id="session-panel-map" aria-labelledby="session-tab-map" className={`sessionPanel mapPanel ${activePanel === 'map' ? 'active' : ''}`} role="tabpanel" aria-hidden={activePanel !== 'map'}>
-            {role === 'Cliente' && (
-              <div className="sessionMapTools" role="toolbar" aria-label="Acciones del mapa">
-                {[
-                  ['explore', 'Explorar'],
-                  ['place', 'Comercio'],
-                  ['point', 'Punto'],
-                  ['route', 'Ruta'],
-                ].map(([id, label]) => (
-                  <button key={id} type="button" className={mapMode === id ? 'active' : ''} aria-pressed={mapMode === id} onClick={() => chooseMapMode(id)}>{label}</button>
-                ))}
+          <div id="session-panel-map" aria-labelledby="session-tab-map" className={`sessionPanel mapPanel ${activePanel === 'map' ? 'active' : ''}`} role="tabpanel" aria-hidden={activePanel !== 'map'} inert={activePanel !== 'map'}>
+            <div className={`sessionMapLayout ${role === 'Local' ? 'withSuggestionQueue' : ''}`}>
+              <div className="sessionMapStage">
+                {role === 'Cliente' && (
+                  <div className="sessionMapTools" role="toolbar" aria-label="Modo de interacción con el mapa">
+                    {[
+                      ['explore', 'Explorar'],
+                      ['place', 'Comercio'],
+                      ['point', 'Punto'],
+                      ['route', 'Ruta'],
+                    ].map(([id, label]) => (
+                      <button key={id} type="button" className={mapMode === id ? 'active' : ''} aria-pressed={mapMode === id} onClick={() => chooseMapMode(id)}>{label}</button>
+                    ))}
+                  </div>
+                )}
+                <div className="sessionMap">
+                  <LiveTrackingMap
+                    localLocation={localLocation}
+                    targetLocation={request.targetLocation}
+                    sessionPoints={sessionPoints}
+                    interactionMode={role === 'Cliente' && request.status === 'in_progress' ? mapMode : 'explore'}
+                    draftRoute={draftRoute}
+                    onPointSelected={selectFreePoint}
+                    onPlaceSelected={selectPlace}
+                    onRouteVertex={addRouteVertex}
+                    onDeletePoint={role === 'Cliente' ? removePoint : null}
+                  />
+                  {role === 'Cliente' && mapMode !== 'explore' && !pendingPoint && (
+                    <p className="sessionMapHint">
+                      {mapMode === 'place' && 'Elige una actividad o lugar visible'}
+                      {mapMode === 'point' && 'Toca el punto exacto al que debe dirigirse'}
+                      {mapMode === 'route' && `Traza la ruta tocando el mapa · ${draftRoute.length} puntos`}
+                    </p>
+                  )}
+                </div>
+                {role === 'Cliente' && mapMode === 'route' && (
+                  <div className="sessionRouteActions" role="toolbar" aria-label="Edición de la ruta sugerida">
+                    <button type="button" className="secondary" onClick={() => setDraftRoute(current => current.slice(0, -1))} disabled={!draftRoute.length}>Deshacer</button>
+                    <button type="button" className="secondary" onClick={() => setDraftRoute([])} disabled={!draftRoute.length}>Limpiar</button>
+                    <button type="button" className="primary" onClick={prepareRoute} disabled={draftRoute.length < 2}>Sugerir ruta</button>
+                  </div>
+                )}
               </div>
-            )}
-            <div className="sessionMap">
-              <LiveTrackingMap
-                localLocation={localLocation}
-                targetLocation={request.targetLocation}
-                sessionPoints={sessionPoints}
-                interactionMode={role === 'Cliente' && request.status === 'in_progress' ? mapMode : 'explore'}
-                draftRoute={draftRoute}
-                onPointSelected={selectFreePoint}
-                onPlaceSelected={selectPlace}
-                onRouteVertex={addRouteVertex}
-                onDeletePoint={role === 'Cliente' ? removePoint : null}
-              />
-              {role === 'Cliente' && mapMode !== 'explore' && !pendingPoint && (
-                <p className="sessionMapHint">
-                  {mapMode === 'place' && 'Elige una actividad o lugar visible'}
-                  {mapMode === 'point' && 'Toca el punto exacto al que debe dirigirse'}
-                  {mapMode === 'route' && `Traza la ruta tocando el mapa · ${draftRoute.length} puntos`}
-                </p>
+              {role === 'Local' && (
+                <SessionSuggestionQueue
+                  suggestions={orderedSuggestions}
+                  activeSuggestion={activeSuggestion}
+                  progressingPointId={progressingPointId}
+                  expanded={queueExpanded}
+                  onToggle={() => setQueueExpanded(current => !current)}
+                  onProgress={progressSuggestion}
+                />
               )}
             </div>
-            {role === 'Cliente' && mapMode === 'route' && (
-              <div className="sessionRouteActions">
-                <button type="button" className="secondary" onClick={() => setDraftRoute(current => current.slice(0, -1))} disabled={!draftRoute.length}>Deshacer</button>
-                <button type="button" className="secondary" onClick={() => setDraftRoute([])} disabled={!draftRoute.length}>Limpiar</button>
-                <button type="button" className="primary" onClick={prepareRoute} disabled={draftRoute.length < 2}>Sugerir ruta</button>
-              </div>
-            )}
-            {role === 'Local' && <SessionSuggestionQueue suggestions={orderedSuggestions} activeSuggestion={activeSuggestion} progressingPointId={progressingPointId} onProgress={progressSuggestion} />}
             {pointError && <p className="sessionPointError" role="alert">{pointError}</p>}
           </div>
 
-          <div id="session-panel-camera" aria-labelledby="session-tab-camera" className={`sessionPanel cameraPanel ${activePanel === 'camera' ? 'active' : ''}`} role="tabpanel" aria-hidden={activePanel !== 'camera'}>
+          <div id="session-panel-camera" aria-labelledby="session-tab-camera" className={`sessionPanel cameraPanel ${activePanel === 'camera' ? 'active' : ''}`} role="tabpanel" aria-hidden={activePanel !== 'camera'} inert={activePanel !== 'camera'}>
             <WebRTCRoom roomId={request.id} role={role} isActive={activePanel === 'camera'} />
           </div>
 
-          <div id="session-panel-chat" aria-labelledby="session-tab-chat" className={`sessionPanel chatPanel ${activePanel === 'chat' ? 'active' : ''}`} role="tabpanel" aria-hidden={activePanel !== 'chat'}>
+          <div id="session-panel-chat" aria-labelledby="session-tab-chat" className={`sessionPanel chatPanel ${activePanel === 'chat' ? 'active' : ''}`} role="tabpanel" aria-hidden={activePanel !== 'chat'} inert={activePanel !== 'chat'}>
             <ChatPanel requestId={request.id} sender={role} isActive={activePanel === 'chat'} onUnread={markChatUnread} />
           </div>
         </div>
       </div>
-      <p className="sessionSwipeHint">Toca una pestaña o desliza para cambiar de herramienta</p>
+      <p id="session-navigation-hint" className="sessionSwipeHint">Toca una pestaña o desliza para cambiar de herramienta</p>
       {pendingPoint && (
         <div className="sessionPointDialogBackdrop" role="presentation" onMouseDown={event => event.target === event.currentTarget && dismissPendingPoint()}>
-          <form className="sessionPointDialog" role="dialog" aria-modal="true" aria-labelledby="session-point-title" onSubmit={confirmPoint}>
+          <form ref={pointDialogRef} className="sessionPointDialog" role="dialog" aria-modal="true" aria-labelledby="session-point-title" aria-describedby="session-point-description" onSubmit={confirmPoint}>
             <p className="stepLabel">{pendingPoint.type === 'route' ? 'Nueva ruta' : pendingPoint.type === 'place' ? 'Nuevo lugar' : 'Nuevo punto'}</p>
             <h3 id="session-point-title">{pendingPoint.title}</h3>
-            {pendingPoint.type === 'route' && <small>{pendingPoint.route.length} puntos en el recorrido</small>}
-            <textarea autoFocus maxLength={240} rows={3} value={pointInstruction} onChange={event => setPointInstruction(event.target.value)} placeholder="Ej.: entra por la puerta lateral (opcional)" />
+            <p id="session-point-description" className="sessionPointDescription">{pendingPoint.type === 'route' ? `${pendingPoint.route.length} puntos en el recorrido.` : 'Añade una indicación para que el Local sepa qué debe hacer.'}</p>
+            <label className="srOnly" htmlFor="session-point-instruction">Indicación para el Local</label>
+            <textarea ref={pointInstructionRef} id="session-point-instruction" maxLength={240} rows={3} value={pointInstruction} onChange={event => setPointInstruction(event.target.value)} placeholder="Ej.: entra por la puerta lateral (opcional)" />
             <div className="sessionPointDialogActions">
               <button type="button" className="secondary" onClick={dismissPendingPoint} disabled={savingPoint}>Cancelar</button>
               <button type="submit" className="primary" disabled={savingPoint}>{savingPoint ? 'Compartiendo…' : 'Compartir sugerencia'}</button>

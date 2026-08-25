@@ -51,6 +51,7 @@ export default function WebRTCRoom({ roomId, role, isActive = true }) {
   const [activeDeviceId, setActiveDeviceId] = useState('');
   const [facingMode, setFacingMode] = useState('user');
   const [switchingCamera, setSwitchingCamera] = useState(false);
+  const [starting, setStarting] = useState(false);
   const isMobileDevice = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
   const canSwitchCamera = isMobileDevice || videoDevices.length > 1;
 
@@ -171,6 +172,8 @@ export default function WebRTCRoom({ roomId, role, isActive = true }) {
   }
 
   async function startCall() {
+    if (starting || started) return;
+    setStarting(true);
     try {
       setError('');
       setStatus(
@@ -523,6 +526,8 @@ export default function WebRTCRoom({ roomId, role, isActive = true }) {
       );
 
       stopCall();
+    } finally {
+      setStarting(false);
     }
   }
 
@@ -669,6 +674,7 @@ export default function WebRTCRoom({ roomId, role, isActive = true }) {
     setVideoDevices([]);
     setActiveDeviceId('');
     setFacingMode('user');
+    setStarting(false);
     setStatus('Sala detenida');
   }
 
@@ -677,66 +683,22 @@ export default function WebRTCRoom({ roomId, role, isActive = true }) {
   // -------------------------
 
   return (
-    <section className={`card videoRoom ${isActive ? 'isActive' : 'isBackground'}`} aria-label="Cámara de la sesión">
-      <div className="sectionHeader">
-        <div>
-          <h3>
-            Videollamada LiveLocal
-          </h3>
-
-          <p className="muted">
-            WebRTC integrado con
-            señalización y presencia
-            mediante Supabase Realtime.
-          </p>
-        </div>
-
-        {started ? (
-          <div className="callActions">
-          {canSwitchCamera && <button type="button" className="secondary" onClick={switchCamera} disabled={switchingCamera}>
-            <SwitchCamera size={16} />
-            {switchingCamera ? 'Cambiando…' : facingMode === 'environment' ? 'Usar frontal' : 'Usar trasera'}
-          </button>}
-          <button
-            className="danger"
-            onClick={stopCall}
-          >
-            <PhoneOff size={16} />
-            Colgar
-          </button>
-          </div>
-        ) : (
-          <button
-            onClick={startCall}
-          >
-            <Camera size={16} />
-            Entrar a la sala
-          </button>
-        )}
-      </div>
-
-      {started && <div className="videoViewSwitch" role="group" aria-label="Vídeo principal">
-        <button type="button" className={activeView === 'remote' ? 'active' : 'secondary'} onClick={() => setActiveView('remote')}>
-          Ver {role === 'Local' ? 'Cliente' : 'Local'}
-        </button>
-        <button type="button" className={activeView === 'local' ? 'active' : 'secondary'} onClick={() => setActiveView('local')}>
-          Ver mi cámara
-        </button>
-      </div>}
-
-      <div className={`videoGrid focus-${activeView}`}>
+    <section className={`videoRoom ${isActive ? 'isActive' : 'isBackground'} ${started ? 'hasStarted' : 'isLobby'}`} aria-label="Cámara de la sesión">
+      <div className="videoStage">
+        <div className={`videoGrid focus-${activeView}`} aria-hidden={!started}>
         <div className="videoTile localVideo">
           <video
             ref={localVideo}
             autoPlay
             muted
             playsInline
+            aria-label={`Tu cámara como ${role}`}
           />
 
           <span>
             Tú ({role})
           </span>
-          {activeView !== 'local' && <button type="button" className="videoFocusButton" onClick={() => setActiveView('local')}>Ver en grande</button>}
+          {started && activeView !== 'local' && <button type="button" className="videoFocusButton" onClick={() => setActiveView('local')}>Ver en grande</button>}
         </div>
 
         <div className="videoTile remoteVideo">
@@ -744,31 +706,63 @@ export default function WebRTCRoom({ roomId, role, isActive = true }) {
             ref={remoteVideo}
             autoPlay
             playsInline
+            aria-label={`Cámara del ${role === 'Local' ? 'Cliente' : 'Local'}`}
           />
 
           <span>
             {role === 'Local' ? 'Cliente' : 'Local'}
           </span>
-          {!remoteAvailable && <div className="remoteWaiting"><Camera size={22} /><b>Esperando la cámara del {role === 'Local' ? 'Cliente' : 'Local'}</b><small>La otra persona debe entrar en la sala y permitir su cámara.</small></div>}
-          {activeView !== 'remote' && <button type="button" className="videoFocusButton" onClick={() => setActiveView('remote')}>Ver en grande</button>}
+          {started && !remoteAvailable && <div className="remoteWaiting"><Camera size={22} /><b>Esperando la cámara del {role === 'Local' ? 'Cliente' : 'Local'}</b><small>La otra persona debe entrar en la sala y permitir su cámara.</small></div>}
+          {started && activeView !== 'remote' && <button type="button" className="videoFocusButton" onClick={() => setActiveView('remote')}>Ver en grande</button>}
         </div>
+        </div>
+
+        {!started && (
+          <div className="videoLobby">
+            <span className="videoLobbyIcon" aria-hidden="true"><Camera size={26} /></span>
+            <p className="stepLabel">Cámara en directo</p>
+            <h3>Entra cuando estés listo</h3>
+            <p>Podrás ver a la otra persona y cambiar de vista sin salir de la sesión.</p>
+            <button type="button" className="primary videoJoinButton" onClick={startCall} disabled={starting} aria-busy={starting || undefined}>
+              <Camera size={18} />
+              {starting ? 'Conectando…' : 'Entrar a la cámara'}
+            </button>
+          </div>
+        )}
+
+        {started && (
+          <>
+            <div className="videoStatusPill" role="status">
+              <Mic size={14} aria-hidden="true" />
+              <span>{status}</span>
+            </div>
+
+            <div className="videoViewSwitch" role="group" aria-label="Vídeo principal">
+              <button type="button" className={activeView === 'remote' ? 'active' : ''} aria-pressed={activeView === 'remote'} onClick={() => setActiveView('remote')}>
+                {role === 'Local' ? 'Cliente' : 'Local'}
+              </button>
+              <button type="button" className={activeView === 'local' ? 'active' : ''} aria-pressed={activeView === 'local'} onClick={() => setActiveView('local')}>
+                Tú
+              </button>
+            </div>
+
+            <div className="callActions" role="group" aria-label="Controles de cámara">
+              {canSwitchCamera && (
+                <button type="button" className="videoControlButton" onClick={switchCamera} disabled={switchingCamera} aria-label={facingMode === 'environment' ? 'Usar cámara frontal' : 'Usar cámara trasera'}>
+                  <SwitchCamera size={19} aria-hidden="true" />
+                  <span>{switchingCamera ? 'Cambiando…' : 'Cambiar cámara'}</span>
+                </button>
+              )}
+              <button type="button" className="videoControlButton isDanger" onClick={stopCall}>
+                <PhoneOff size={19} aria-hidden="true" />
+                <span>Colgar</span>
+              </button>
+            </div>
+          </>
+        )}
+
+        {error && <p className="videoError" role="alert">{error}</p>}
       </div>
-
-      <p className="statusLine">
-        <Mic size={14} />
-        {status}
-      </p>
-
-      {error && (
-        <p className="error">
-          {error}
-        </p>
-      )}
-
-      <p className="hint">
-        Sala identificada por la
-        petición {roomId}.
-      </p>
     </section>
   );
 }
