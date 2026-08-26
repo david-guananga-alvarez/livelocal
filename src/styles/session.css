@@ -465,7 +465,101 @@
 }
 .videoControlButton { min-height: 40px; padding: 8px 13px; color: #fff; background: rgba(255, 255, 255, .1); border-radius: var(--radius-pill); font-size: 12px; }
 .videoControlButton:hover:not(:disabled) { background: rgba(255, 255, 255, .17); }
+.videoControlButton.isEnabled { color: #d9ffe8; background: rgba(22, 163, 74, .3); box-shadow: inset 0 0 0 1px rgba(134, 239, 172, .36); }
 .videoControlButton.isDanger { background: #d92d46; }
+
+.cameraDirectionPanel {
+  position: absolute;
+  z-index: 11;
+  right: 14px;
+  bottom: calc(76px + env(safe-area-inset-bottom));
+  width: min(252px, calc(100% - 28px));
+  padding: 12px;
+  color: #fff;
+  background: rgba(8, 13, 24, .9);
+  border: 1px solid rgba(255, 255, 255, .14);
+  border-radius: 20px;
+  box-shadow: 0 18px 42px rgba(0, 0, 0, .38);
+  backdrop-filter: blur(16px);
+}
+.cameraDirectionPanel header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.cameraDirectionPanel header div { display: grid; gap: 2px; }
+.cameraDirectionPanel header span { color: #aab5c6; font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.cameraDirectionPanel header strong { font-size: 15px; }
+.cameraDirectionPanel header > button,
+.cameraGuidanceOverlay > button {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  color: #dce4ef;
+  background: rgba(255, 255, 255, .08);
+  border-radius: 50%;
+}
+.cameraAngleSelector { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin: 10px 0; padding: 4px; background: rgba(255, 255, 255, .06); border-radius: 12px; }
+.cameraAngleSelector button { min-height: 30px; padding: 4px 8px; color: #aeb9c9; background: transparent; border-radius: 9px; font-size: 11px; }
+.cameraAngleSelector button.active { color: #0d1b31; background: #fff; }
+.cameraDirectionPad {
+  display: grid;
+  grid-template-columns: repeat(3, 46px);
+  grid-template-rows: repeat(3, 42px);
+  justify-content: center;
+  gap: 5px;
+}
+.cameraDirectionPad button { display: grid; place-items: center; padding: 0; color: #fff; background: rgba(255, 255, 255, .1); border: 1px solid rgba(255, 255, 255, .08); border-radius: 13px; }
+.cameraDirectionPad button:hover { background: rgba(62, 120, 255, .32); }
+.cameraDirectionPad .directionUp { grid-column: 2; grid-row: 1; }
+.cameraDirectionPad .directionLeft { grid-column: 1; grid-row: 2; }
+.cameraDirectionPad .directionStop { grid-column: 2; grid-row: 2; color: #9ebcff; background: rgba(40, 89, 202, .2); border-radius: 50%; }
+.cameraDirectionPad .directionRight { grid-column: 3; grid-row: 2; }
+.cameraDirectionPad .directionDown { grid-column: 2; grid-row: 3; }
+.cameraCommandStatus { min-height: 30px; margin: 8px 2px 0; color: #aab5c6; font-size: 11px; line-height: 1.35; text-align: center; }
+.cameraCommandStatus.active { color: #c5d7ff; }
+.cameraCommandStatus.completed { color: #92efb4; }
+
+.cameraGuidanceOverlay {
+  position: absolute;
+  z-index: 7;
+  left: 50%;
+  top: 50%;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  width: min(420px, calc(100% - 32px));
+  padding: 12px;
+  color: #fff;
+  background: rgba(7, 13, 24, .86);
+  border: 1px solid rgba(126, 163, 255, .36);
+  border-radius: 22px;
+  box-shadow: 0 20px 54px rgba(0, 0, 0, .4);
+  transform: translate(-50%, -50%);
+  backdrop-filter: blur(14px);
+}
+.cameraGuidanceDial {
+  --guidance-progress: 0deg;
+  display: grid;
+  place-items: center;
+  width: 78px;
+  height: 78px;
+  color: #fff;
+  background:
+    radial-gradient(circle at center, #14213b 58%, transparent 60%),
+    conic-gradient(#6e9cff var(--guidance-progress), rgba(255, 255, 255, .12) 0);
+  border-radius: 50%;
+  filter: drop-shadow(0 8px 16px rgba(50, 101, 234, .28));
+}
+.cameraGuidanceOverlay.isComplete { border-color: rgba(92, 226, 139, .5); }
+.cameraGuidanceOverlay.isComplete .cameraGuidanceDial {
+  color: #d9ffe8;
+  background:
+    radial-gradient(circle at center, #123121 58%, transparent 60%),
+    conic-gradient(#42d879 360deg, rgba(255, 255, 255, .12) 0);
+}
+.cameraGuidanceCopy { display: grid; gap: 2px; min-width: 0; }
+.cameraGuidanceCopy span { color: #9fb7ee; font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.cameraGuidanceCopy strong { overflow: hidden; font-size: clamp(17px, 3vw, 23px); text-overflow: ellipsis; white-space: nowrap; }
+.cameraGuidanceCopy small { color: #bec8d8; font-size: 11px; }
+
 .videoError {
   position: absolute;
   z-index: 12;
@@ -639,6 +733,11 @@
   .callActions { bottom: calc(10px + env(safe-area-inset-bottom)); }
   .videoControlButton { width: 44px; height: 44px; justify-content: center; padding: 0; }
   .videoControlButton span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .cameraDirectionPanel { right: 10px; bottom: calc(68px + env(safe-area-inset-bottom)); width: min(232px, calc(100% - 20px)); }
+  .cameraGuidanceOverlay { grid-template-columns: 62px minmax(0, 1fr) 30px; gap: 9px; width: calc(100% - 20px); padding: 10px; border-radius: 18px; }
+  .cameraGuidanceDial { width: 62px; height: 62px; }
+  .cameraGuidanceDial svg { width: 36px; height: 36px; }
+  .cameraGuidanceCopy strong { font-size: 16px; }
   .videoError { bottom: 68px; }
   .videoRoom.isLobby .videoError { bottom: 12px; }
   .chatHeader { min-height: 56px; padding: 8px 12px; }

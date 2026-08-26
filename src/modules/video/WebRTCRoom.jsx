@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Camera, Mic, PhoneOff, SwitchCamera } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Camera, Check, Crosshair, Gamepad2, Mic, PhoneOff, ShieldCheck, SwitchCamera, X } from 'lucide-react';
 
 import { supabase } from '../auth/supabaseClient';
 import { useAuth } from '../auth/AuthProvider';
@@ -29,6 +29,18 @@ const iceServers = [
         credential: "zoO5z6FSSNc+Dz/S",
       },
   ];
+
+const CAMERA_DIRECTIONS = {
+  left: { label: 'Gira a la izquierda', shortLabel: 'Izquierda', axis: 'alpha', Icon: ArrowLeft },
+  right: { label: 'Gira a la derecha', shortLabel: 'Derecha', axis: 'alpha', Icon: ArrowRight },
+  up: { label: 'Apunta hacia arriba', shortLabel: 'Arriba', axis: 'beta', Icon: ArrowUp },
+  down: { label: 'Apunta hacia abajo', shortLabel: 'Abajo', axis: 'beta', Icon: ArrowDown },
+};
+
+function normalizeAngle(value) {
+  return ((value + 540) % 360) - 180;
+}
+
 export default function WebRTCRoom({ roomId, role, isActive = true }) {
   const { user } = useAuth();
 
@@ -41,6 +53,11 @@ export default function WebRTCRoom({ roomId, role, isActive = true }) {
 
   const pendingIceRef = useRef([]);
   const offerSentRef = useRef(false);
+  const remoteControlEnabledRef = useRef(false);
+  const orientationRef = useRef({ alpha: null, beta: null });
+  const commandBaselineRef = useRef(null);
+  const activeCommandRef = useRef(null);
+  const completedCommandRef = useRef('');
 
   const [started, setStarted] = useState(false);
   const [error, setError] = useState('');
@@ -52,6 +69,15 @@ export default function WebRTCRoom({ roomId, role, isActive = true }) {
   const [facingMode, setFacingMode] = useState('user');
   const [switchingCamera, setSwitchingCamera] = useState(false);
   const [starting, setStarting] = useState(false);
+  const [remoteControlEnabled, setRemoteControlEnabled] = useState(false);
+  const [remoteControlAvailable, setRemoteControlAvailable] = useState(false);
+  const [orientationTracking, setOrientationTracking] = useState(false);
+  const [orientationDetected, setOrientationDetected] = useState(false);
+  const [activeCommand, setActiveCommand] = useState(null);
+  const [guidanceProgress, setGuidanceProgress] = useState(0);
+  const [controlAngle, setControlAngle] = useState(30);
+  const [controlPanelOpen, setControlPanelOpen] = useState(false);
+  const [clientCommand, setClientCommand] = useState(null);
   const isMobileDevice = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
   const canSwitchCamera = isMobileDevice || videoDevices.length > 1;
 
@@ -60,6 +86,70 @@ export default function WebRTCRoom({ roomId, role, isActive = true }) {
       stopCall();
     };
   }, []);
+
+  useEffect(() => {
+    remoteControlEnabledRef.current = remoteControlEnabled;
+  }, [remoteControlEnabled]);
+
+  useEffect(() => {
+    activeCommandRef.current = activeCommand;
+  }, [activeCommand]);
+
+  useEffect(() => {
+    if (role !== 'Local' || !orientationTracking) return undefined;
+
+    const handleOrientation = event => {
+      const reading = {
+        alpha: Number.isFinite(event.alpha) ? event.alpha : null,
+        beta: Number.isFinite(event.beta) ? event.beta : null,
+      };
+
+      if (reading.alpha === null && reading.beta === null) return;
+
+      orientationRef.current = reading;
+      setOrientationDetected(true);
+
+      const command = activeCommandRef.current;
+      if (!command || command.completed) return;
+
+      if (!commandBaselineRef.current) {
+        commandBaselineRef.current = reading;
+        return;
+      }
+
+      const start = commandBaselineRef.current[command.axis];
+      const current = reading[command.axis];
+      if (start === null || current === null) return;
+
+      const delta = command.axis === 'alpha'
+        ? Math.abs(normalizeAngle(current - start))
+        : Math.abs(current - start);
+      const progress = Math.min(delta / command.degrees, 1);
+
+      setGuidanceProgress(progress);
+
+      if (progress >= 0.96 && completedCommandRef.current !== command.id) {
+        completedCommandRef.current = command.id;
+        const completedCommand = { ...command, completed: true };
+        activeCommandRef.current = completedCommand;
+        setActiveCommand(completedCommand);
+
+        channelRef.current?.send({
+          type: 'broadcast',
+          event: 'signal',
+          payload: {
+            type: 'camera-control-complete',
+            commandId: command.id,
+            fromUserId: user?.id,
+            fromRole: role,
+          },
+        });
+      }
+    };
+
+    window.addEventListener('deviceorientation', handleOrientation, true);
+    return () => window.removeEventListener('deviceorientation', handleOrientation, true);
+  }, [orientationTracking, role, user?.id]);
 
   async function flushPendingIce(pc) {
     if (!pc.remoteDescription) return;
@@ -101,6 +191,73 @@ export default function WebRTCRoom({ roomId, role, isActive = true }) {
 
     // Ignorar nuestros propios mensajes
     if (data.fromUserId === user?.id) return;
+
+    if (data.type === 'camera-control-availability') {
+      if (role !== 'Cliente') return;
+
+      const enabled = Boolean(data.enabled);
+      setRemoteControlAvailable(enabled);
+      setControlPanelOpen(enabled);
+      if (!enabled) setClientCommand(null);
+      return;
+    }
+
+    if (data.type === 'camera-control-command') {
+      if (role !== 'Local' || !remoteControlEnabledRef.current) return;
+
+      const direction = CAMERA_DIRECTIONS[data.direction];
+      if (!direction) return;
+
+      const command = {
+        id: data.commandId,
+        direction: data.direction,
+        axis: direction.axis,
+        degrees: Math.min(Math.max(Number(data.degrees) || 30, 10), 60),
+        completed: false,
+      };
+
+      commandBaselineRef.current =
+        orientationRef.current.alpha !== null || orientationRef.current.beta !== null
+          ? { ...orientationRef.current }
+          : null;
+      completedCommandRef.current = '';
+      activeCommandRef.current = command;
+      setActiveCommand(command);
+      setGuidanceProgress(0);
+      setActiveView('local');
+      setStatus(direction.label);
+
+      await send({
+        type: 'camera-control-accepted',
+        commandId: command.id,
+      });
+      return;
+    }
+
+    if (data.type === 'camera-control-accepted') {
+      if (role !== 'Cliente') return;
+      setClientCommand(command =>
+        command?.id === data.commandId ? { ...command, status: 'active' } : command
+      );
+      return;
+    }
+
+    if (data.type === 'camera-control-complete') {
+      if (role !== 'Cliente') return;
+      setClientCommand(command =>
+        command?.id === data.commandId ? { ...command, status: 'completed' } : command
+      );
+      return;
+    }
+
+    if (data.type === 'camera-control-cancel') {
+      setClientCommand(null);
+      activeCommandRef.current = null;
+      commandBaselineRef.current = null;
+      setActiveCommand(null);
+      setGuidanceProgress(0);
+      return;
+    }
 
     // LOCAL recibe oferta
     if (data.type === 'offer') {
@@ -407,6 +564,11 @@ export default function WebRTCRoom({ roomId, role, isActive = true }) {
               setStatus(
                 'Cliente conectado. Preparando llamada...'
               );
+
+              await send({
+                type: 'camera-control-availability',
+                enabled: remoteControlEnabledRef.current,
+              });
             }
 
             return;
@@ -553,6 +715,112 @@ export default function WebRTCRoom({ roomId, role, isActive = true }) {
         fromRole: role,
       },
     });
+  }
+
+  async function requestOrientationAccess() {
+    if (typeof DeviceOrientationEvent === 'undefined') {
+      setOrientationTracking(false);
+      return false;
+    }
+
+    if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+      const permission = await DeviceOrientationEvent.requestPermission();
+      if (permission !== 'granted') {
+        throw new Error('Permite el acceso al movimiento para usar la guía automática');
+      }
+    }
+
+    setOrientationTracking(true);
+    return true;
+  }
+
+  async function toggleRemoteControl() {
+    if (role !== 'Local') return;
+
+    const nextEnabled = !remoteControlEnabled;
+    try {
+      setError('');
+
+      if (nextEnabled) {
+        await requestOrientationAccess();
+      }
+
+      remoteControlEnabledRef.current = nextEnabled;
+      setRemoteControlEnabled(nextEnabled);
+
+      if (!nextEnabled) {
+        activeCommandRef.current = null;
+        commandBaselineRef.current = null;
+        setActiveCommand(null);
+        setGuidanceProgress(0);
+        setOrientationTracking(false);
+        setOrientationDetected(false);
+        await send({ type: 'camera-control-cancel' });
+      }
+
+      await send({
+        type: 'camera-control-availability',
+        enabled: nextEnabled,
+      });
+
+      setStatus(
+        nextEnabled
+          ? 'Dirección remota habilitada'
+          : 'Dirección remota desactivada'
+      );
+    } catch (controlError) {
+      setError(controlError?.message || 'No se pudo activar la dirección remota');
+    }
+  }
+
+  async function sendCameraDirection(directionKey) {
+    if (role !== 'Cliente' || !remoteControlAvailable) return;
+
+    const direction = CAMERA_DIRECTIONS[directionKey];
+    if (!direction) return;
+
+    const commandId =
+      globalThis.crypto?.randomUUID?.() ||
+      `camera-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const command = {
+      id: commandId,
+      direction: directionKey,
+      degrees: controlAngle,
+      status: 'sent',
+    };
+
+    setClientCommand(command);
+    setActiveView('remote');
+    setError('');
+
+    try {
+      await send({
+        type: 'camera-control-command',
+        commandId,
+        direction: directionKey,
+        degrees: controlAngle,
+      });
+    } catch (controlError) {
+      setClientCommand({ ...command, status: 'error' });
+      setError(controlError?.message || 'No se pudo enviar la indicación');
+    }
+  }
+
+  async function cancelCameraDirection() {
+    setClientCommand(null);
+    activeCommandRef.current = null;
+    commandBaselineRef.current = null;
+    setActiveCommand(null);
+    setGuidanceProgress(0);
+    await send({ type: 'camera-control-cancel' });
+  }
+
+  function dismissCameraGuidance() {
+    activeCommandRef.current = null;
+    commandBaselineRef.current = null;
+    setActiveCommand(null);
+    setGuidanceProgress(0);
+    send({ type: 'camera-control-cancel' });
   }
 
   async function switchCamera() {
@@ -717,12 +985,30 @@ export default function WebRTCRoom({ roomId, role, isActive = true }) {
     setActiveDeviceId('');
     setFacingMode('user');
     setStarting(false);
+    remoteControlEnabledRef.current = false;
+    activeCommandRef.current = null;
+    commandBaselineRef.current = null;
+    setRemoteControlEnabled(false);
+    setRemoteControlAvailable(false);
+    setOrientationTracking(false);
+    setOrientationDetected(false);
+    setActiveCommand(null);
+    setGuidanceProgress(0);
+    setControlPanelOpen(false);
+    setClientCommand(null);
     setStatus('Sala detenida');
   }
 
   // -------------------------
   // UI
   // -------------------------
+
+  const activeDirection = activeCommand
+    ? CAMERA_DIRECTIONS[activeCommand.direction]
+    : null;
+  const clientDirection = clientCommand
+    ? CAMERA_DIRECTIONS[clientCommand.direction]
+    : null;
 
   return (
     <section className={`videoRoom ${isActive ? 'isActive' : 'isBackground'} ${started ? 'hasStarted' : 'isLobby'}`} aria-label="Cámara de la sesión">
@@ -756,8 +1042,89 @@ export default function WebRTCRoom({ roomId, role, isActive = true }) {
           </span>
           {started && !remoteAvailable && <div className="remoteWaiting"><Camera size={22} /><b>Esperando la cámara del {role === 'Local' ? 'Cliente' : 'Local'}</b><small>La otra persona debe entrar en la sala y permitir su cámara.</small></div>}
           {started && activeView !== 'remote' && <button type="button" className="videoFocusButton" onClick={() => setActiveView('remote')}>Ver en grande</button>}
+          {role === 'Local' && activeCommand && activeDirection && (
+            <div className={`cameraGuidanceOverlay ${activeCommand.completed ? 'isComplete' : ''}`} role="status" aria-live="assertive">
+              <div
+                className="cameraGuidanceDial"
+                style={{ '--guidance-progress': `${Math.round(guidanceProgress * 360)}deg` }}
+                aria-hidden="true"
+              >
+                {activeCommand.completed
+                  ? <Check size={42} />
+                  : <activeDirection.Icon size={48} strokeWidth={2.4} />}
+              </div>
+              <div className="cameraGuidanceCopy">
+                <span>{activeCommand.completed ? 'Encuadre alcanzado' : 'Indicación del Cliente'}</span>
+                <strong>{activeCommand.completed ? 'Mantén esta posición' : activeDirection.label}</strong>
+                <small>
+                  {activeCommand.completed
+                    ? 'El Cliente ya ha recibido la confirmación.'
+                    : orientationDetected
+                      ? `${Math.round(guidanceProgress * 100)}% de ${activeCommand.degrees}°`
+                      : `Sigue la flecha unos ${activeCommand.degrees}°`}
+                </small>
+              </div>
+              <button type="button" onClick={dismissCameraGuidance} aria-label="Cerrar indicación">
+                <X size={18} aria-hidden="true" />
+              </button>
+            </div>
+          )}
         </div>
         </div>
+
+        {started && role === 'Cliente' && remoteControlAvailable && controlPanelOpen && (
+          <section className="cameraDirectionPanel" aria-label="Dirección remota de la cámara">
+            <header>
+              <div>
+                <span>Dirección asistida</span>
+                <strong>Guía al Local</strong>
+              </div>
+              <button type="button" onClick={() => setControlPanelOpen(false)} aria-label="Cerrar controles">
+                <X size={17} aria-hidden="true" />
+              </button>
+            </header>
+
+            <div className="cameraAngleSelector" role="group" aria-label="Amplitud del movimiento">
+              {[15, 30, 45].map(angle => (
+                <button
+                  key={angle}
+                  type="button"
+                  className={controlAngle === angle ? 'active' : ''}
+                  aria-pressed={controlAngle === angle}
+                  onClick={() => setControlAngle(angle)}
+                >
+                  {angle}°
+                </button>
+              ))}
+            </div>
+
+            <div className="cameraDirectionPad" role="group" aria-label="Dirección de la cámara">
+              <button type="button" className="directionUp" onClick={() => sendCameraDirection('up')} aria-label="Pedir que apunte hacia arriba">
+                <ArrowUp size={22} aria-hidden="true" />
+              </button>
+              <button type="button" className="directionLeft" onClick={() => sendCameraDirection('left')} aria-label="Pedir que gire a la izquierda">
+                <ArrowLeft size={22} aria-hidden="true" />
+              </button>
+              <button type="button" className="directionStop" onClick={cancelCameraDirection} aria-label="Detener indicación">
+                <Crosshair size={18} aria-hidden="true" />
+              </button>
+              <button type="button" className="directionRight" onClick={() => sendCameraDirection('right')} aria-label="Pedir que gire a la derecha">
+                <ArrowRight size={22} aria-hidden="true" />
+              </button>
+              <button type="button" className="directionDown" onClick={() => sendCameraDirection('down')} aria-label="Pedir que apunte hacia abajo">
+                <ArrowDown size={22} aria-hidden="true" />
+              </button>
+            </div>
+
+            <p className={`cameraCommandStatus ${clientCommand?.status || ''}`} aria-live="polite">
+              {!clientCommand && 'El Local verá una guía visual en su pantalla.'}
+              {clientCommand?.status === 'sent' && `Enviando: ${clientDirection?.shortLabel}…`}
+              {clientCommand?.status === 'active' && `El Local está siguiendo: ${clientDirection?.shortLabel}`}
+              {clientCommand?.status === 'completed' && 'Encuadre confirmado por el Local'}
+              {clientCommand?.status === 'error' && 'No se pudo enviar la indicación'}
+            </p>
+          </section>
+        )}
 
         {!started && (
           <div className="videoLobby">
@@ -789,6 +1156,30 @@ export default function WebRTCRoom({ roomId, role, isActive = true }) {
             </div>
 
             <div className="callActions" role="group" aria-label="Controles de cámara">
+              {role === 'Local' && (
+                <button
+                  type="button"
+                  className={`videoControlButton ${remoteControlEnabled ? 'isEnabled' : ''}`}
+                  onClick={toggleRemoteControl}
+                  aria-pressed={remoteControlEnabled}
+                  aria-label={remoteControlEnabled ? 'Desactivar dirección remota' : 'Permitir dirección remota'}
+                >
+                  <ShieldCheck size={19} aria-hidden="true" />
+                  <span>{remoteControlEnabled ? 'Dirección activa' : 'Permitir dirección'}</span>
+                </button>
+              )}
+              {role === 'Cliente' && remoteControlAvailable && (
+                <button
+                  type="button"
+                  className={`videoControlButton ${controlPanelOpen ? 'isEnabled' : ''}`}
+                  onClick={() => setControlPanelOpen(open => !open)}
+                  aria-pressed={controlPanelOpen}
+                  aria-label="Abrir dirección remota"
+                >
+                  <Gamepad2 size={19} aria-hidden="true" />
+                  <span>Dirigir cámara</span>
+                </button>
+              )}
               {canSwitchCamera && (
                 <button type="button" className="videoControlButton" onClick={switchCamera} disabled={switchingCamera} aria-label={facingMode === 'environment' ? 'Usar cámara frontal' : 'Usar cámara trasera'}>
                   <SwitchCamera size={19} aria-hidden="true" />
