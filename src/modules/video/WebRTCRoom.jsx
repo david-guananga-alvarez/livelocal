@@ -563,33 +563,74 @@ export default function WebRTCRoom({ roomId, role, isActive = true }) {
     const sender = pcRef.current.getSenders().find(item => item.track?.kind === 'video');
     if (!currentTrack || !sender) return;
 
-    let replacementStream;
+    const currentSettings = currentTrack.getSettings();
+    const previousFacingMode = currentSettings.facingMode || facingMode;
+    const previousDeviceId = currentSettings.deviceId || activeDeviceId;
+    const audioTracks = localStreamRef.current?.getAudioTracks() || [];
+    let replacementTrack;
+
+    const installVideoTrack = async track => {
+      await sender.replaceTrack(track);
+
+      const updatedStream = new MediaStream([...audioTracks, track]);
+      localStreamRef.current = updatedStream;
+      if (localVideo.current) localVideo.current.srcObject = updatedStream;
+    };
+
+    const recoverPreviousCamera = async () => {
+      let recoveryStream;
+
+      try {
+        recoveryStream = await navigator.mediaDevices.getUserMedia({
+          video: previousDeviceId
+            ? { deviceId: { exact: previousDeviceId } }
+            : { facingMode: { exact: previousFacingMode } },
+          audio: false,
+        });
+      } catch {
+        recoveryStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: previousFacingMode } },
+          audio: false,
+        });
+      }
+
+      const recoveredTrack = recoveryStream.getVideoTracks()[0];
+      if (!recoveredTrack) {
+        recoveryStream.getTracks().forEach(track => track.stop());
+        throw new Error('No se pudo recuperar la cámara anterior');
+      }
+
+      try {
+        await installVideoTrack(recoveredTrack);
+      } catch (recoveryError) {
+        recoveredTrack.stop();
+        throw recoveryError;
+      }
+
+      const recoveredSettings = recoveredTrack.getSettings();
+      setActiveDeviceId(recoveredSettings.deviceId || previousDeviceId || '');
+      setFacingMode(recoveredSettings.facingMode || previousFacingMode);
+    };
+
     try {
       setSwitchingCamera(true);
       setError('');
 
-      try {
-        await currentTrack.applyConstraints({
-          facingMode: { exact: nextFacingMode },
-        });
+      // Android puede mantener el mismo sensor al aplicar constraints sobre una
+      // pista activa. Hay que liberar la cámara antes de solicitar la opuesta.
+      currentTrack.stop();
 
-        const settings = currentTrack.getSettings();
-        setFacingMode(settings.facingMode || nextFacingMode);
-        setActiveDeviceId(settings.deviceId || activeDeviceId);
-        setStatus(`Cámara ${nextFacingMode === 'environment' ? 'trasera' : 'frontal'} activa`);
-        return;
-      } catch (constraintError) {
-        console.info('El navegador requiere sustituir la pista de cámara:', constraintError);
-      }
-
+      let replacementStream;
       try {
         replacementStream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: { exact: nextFacingMode } },
           audio: false,
         });
       } catch (facingError) {
-        const currentIndex = videoDevices.findIndex(device => device.deviceId === activeDeviceId);
-        const nextDevice = videoDevices[(currentIndex + 1 + videoDevices.length) % videoDevices.length];
+        const alternativeDevices = videoDevices.filter(
+          device => device.deviceId && device.deviceId !== previousDeviceId
+        );
+        const nextDevice = alternativeDevices[0];
         if (!nextDevice) throw facingError;
         replacementStream = await navigator.mediaDevices.getUserMedia({
           video: { deviceId: { exact: nextDevice.deviceId } },
@@ -597,29 +638,30 @@ export default function WebRTCRoom({ roomId, role, isActive = true }) {
         });
       }
 
-      const nextTrack = replacementStream.getVideoTracks()[0];
+      replacementTrack = replacementStream.getVideoTracks()[0];
 
-      if (!nextTrack || !sender) {
+      if (!replacementTrack) {
+        replacementStream.getTracks().forEach(track => track.stop());
         throw new Error('No se pudo preparar la otra cámara');
       }
 
-      await sender.replaceTrack(nextTrack);
-
-      const previousStream = localStreamRef.current;
-      const audioTracks = previousStream?.getAudioTracks() || [];
-      previousStream?.getVideoTracks().forEach(track => track.stop());
-
-      const updatedStream = new MediaStream([...audioTracks, nextTrack]);
-      localStreamRef.current = updatedStream;
-      if (localVideo.current) localVideo.current.srcObject = updatedStream;
-      const nextSettings = nextTrack.getSettings();
+      await installVideoTrack(replacementTrack);
+      const nextSettings = replacementTrack.getSettings();
       setActiveDeviceId(nextSettings.deviceId || '');
       setFacingMode(nextSettings.facingMode || nextFacingMode);
       setStatus(`Cámara ${nextFacingMode === 'environment' ? 'trasera' : 'frontal'} activa`);
     } catch (cameraError) {
-      replacementStream?.getTracks().forEach(track => track.stop());
+      replacementTrack?.stop();
       console.error('Error cambiando de cámara:', cameraError);
-      setError(cameraError?.message || 'No se pudo cambiar de cámara');
+
+      try {
+        await recoverPreviousCamera();
+        setError(cameraError?.message || 'No se pudo cambiar de cámara');
+        setStatus('Se mantuvo la cámara anterior');
+      } catch (recoveryError) {
+        console.error('Error recuperando la cámara anterior:', recoveryError);
+        setError('No se pudo cambiar ni recuperar la cámara anterior');
+      }
     } finally {
       setSwitchingCamera(false);
     }
