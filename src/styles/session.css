@@ -530,8 +530,8 @@
   --joystick-x: 0px;
   --joystick-y: 0px;
   position: relative;
-  width: 132px;
-  height: 132px;
+  width: 112px;
+  height: 112px;
   margin: 0 auto;
   overflow: hidden;
   touch-action: none;
@@ -560,8 +560,8 @@
   left: 50%;
   display: grid;
   place-items: center;
-  width: 50px;
-  height: 50px;
+  width: 42px;
+  height: 42px;
   color: #eaf0ff;
   background: linear-gradient(145deg, #477dec, #234da9);
   border: 1px solid rgba(255, 255, 255, .32);
@@ -572,39 +572,17 @@
   pointer-events: none;
 }
 .cameraJoystick.isActive .cameraJoystickThumb { transition: none; }
-.cameraPosePreview {
-  position: relative;
-  display: flex;
-  align-items: center;
-  min-height: 62px;
-  margin-top: 8px;
-  padding: 8px 78px 8px 10px;
-  overflow: hidden;
-  color: #9fb7ee;
-  background: linear-gradient(120deg, rgba(55, 93, 181, .16), rgba(255, 255, 255, .035));
-  border: 1px solid rgba(151, 179, 241, .14);
-  border-radius: 13px;
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: .07em;
-  text-transform: uppercase;
-  perspective: 260px;
-}
-.cameraPosePreview::after { position: absolute; right: 12px; bottom: 8px; width: 54px; height: 18px; content: ''; background: radial-gradient(ellipse, rgba(61, 112, 230, .24), transparent 68%); transform: rotateX(68deg); }
-.cameraPosePreview .cameraPoseHead { top: 50%; right: 35px; left: auto; transform: translate(50%, -50%) rotateZ(var(--preview-roll)) rotateX(var(--preview-pitch)) rotateY(var(--preview-yaw)); }
-.cameraRollControl { display: grid; gap: 5px; margin-top: 8px; padding: 8px 10px; background: rgba(255, 255, 255, .045); border-radius: 12px; }
-.cameraRollControl > span,
-.cameraRollControl small { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.cameraRollControl b { color: #b9c9e8; font-size: 10px; }
-.cameraRollControl output { min-width: 34px; color: #fff; font-size: 10px; font-weight: 800; text-align: right; }
-.cameraRollControl input { width: 100%; margin: 0; accent-color: #7199f5; cursor: ew-resize; }
-.cameraRollControl small { color: #78869b; font-size: 8px; }
-.cameraJoystickReadout { display: grid; justify-items: center; gap: 1px; min-height: 35px; margin-top: 7px; text-align: center; }
-.cameraJoystickReadout strong { color: #dbe6ff; font-size: 12px; text-transform: capitalize; }
-.cameraJoystickReadout small { color: #8996aa; font-size: 10px; }
+.cameraControlPair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.cameraControlUnit { display: grid; justify-items: center; gap: 5px; min-width: 0; }
+.cameraControlUnit > span { color: #b9c9e8; font-size: 10px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
+.cameraControlUnit > small { min-height: 24px; color: #8996aa; font-size: 9px; line-height: 1.25; text-align: center; text-transform: capitalize; }
+.cameraAimControl { background: radial-gradient(circle at center, rgba(72, 116, 220, .12) 0 10%, transparent 11%), radial-gradient(circle at center, rgba(255, 255, 255, .035) 0 66%, rgba(124, 164, 255, .2) 67% 68%, transparent 69%); }
+.cameraAimVector { position: absolute; z-index: 1; top: 50%; left: 50%; width: var(--aim-length); height: 3px; background: linear-gradient(90deg, #7fa6ff, #dbe7ff); border-radius: 3px; box-shadow: 0 0 8px rgba(101, 147, 255, .55); transform: rotate(var(--aim-angle)); transform-origin: 0 50%; pointer-events: none; }
+.cameraAimVector::after { position: absolute; top: 50%; right: -3px; width: 8px; height: 8px; content: ''; background: #fff; border-radius: 50%; box-shadow: 0 0 0 3px rgba(102, 148, 255, .3); transform: translateY(-50%); }
+.cameraCommandStatuses { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-top: 7px; }
 .cameraDirectionCancel { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; min-height: 32px; margin-top: 7px; color: #c5d3ea; background: rgba(255, 255, 255, .07); border-radius: 10px; font-size: 11px; }
 .cameraDirectionCancel:disabled { opacity: .38; }
-.cameraCommandStatus { min-height: 30px; margin: 8px 2px 0; color: #aab5c6; font-size: 11px; line-height: 1.35; text-align: center; }
+.cameraCommandStatus { min-height: 34px; margin: 0; padding: 5px; color: #aab5c6; background: rgba(255, 255, 255, .035); border-radius: 8px; font-size: 9px; line-height: 1.3; text-align: center; }
 .cameraCommandStatus.preview { color: #b9caff; }
 .cameraCommandStatus.active { color: #c5d7ff; }
 .cameraCommandStatus.completed { color: #92efb4; }
@@ -618,7 +596,7 @@
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px;
-  width: min(420px, calc(100% - 32px));
+  width: min(520px, calc(100% - 32px));
   padding: 12px;
   color: #fff;
   background: rgba(7, 13, 24, .86);
@@ -628,36 +606,35 @@
   transform: translate(-50%, -50%);
   backdrop-filter: blur(14px);
 }
+.cameraGuidanceVisuals { display: grid; grid-template-columns: repeat(2, 76px); gap: 8px; }
+.cameraMovementGuide,
+.cameraGuidanceDial { position: relative; display: grid; place-items: center; width: 76px; height: 76px; color: #8fa7d7; background: rgba(13, 25, 48, .92); border: 1px solid rgba(147, 174, 238, .2); border-radius: 50%; }
+.cameraMovementGuide > span { position: relative; width: 58px; height: 58px; background: repeating-linear-gradient(0deg, transparent 0 9px, rgba(132, 158, 215, .1) 10px), repeating-linear-gradient(90deg, transparent 0 9px, rgba(132, 158, 215, .1) 10px); border: 1px solid rgba(147, 174, 238, .14); border-radius: 50%; }
+.cameraMovementGuide > span::after { position: absolute; top: 50%; left: 50%; width: 9px; height: 9px; content: ''; background: #9eb9f4; border-radius: 50%; transform: translate(-50%, -50%); }
+.cameraMovementGuide i { position: absolute; top: 5px; left: calc(50% - 2px); width: 4px; height: 24px; background: linear-gradient(#fff, #74a2ff); border-radius: 4px; opacity: .3; transform: rotate(var(--movement-angle)); transform-origin: 50% 24px; }
+.cameraMovementGuide i::before { position: absolute; top: -2px; left: 50%; width: 8px; height: 8px; content: ''; border-top: 3px solid #fff; border-right: 3px solid #fff; transform: translateX(-50%) rotate(-45deg); }
+.cameraMovementGuide.isActive i { opacity: 1; }
 .cameraGuidanceDial {
   --guidance-progress: 0deg;
-  display: grid;
-  place-items: center;
-  width: 116px;
-  height: 104px;
-  padding: 4px;
-  color: #fff;
   background:
     radial-gradient(circle at center, #14213b 58%, transparent 60%),
     conic-gradient(#6e9cff var(--guidance-progress), rgba(255, 255, 255, .12) 0);
-  border-radius: 22px;
-  filter: drop-shadow(0 8px 16px rgba(50, 101, 234, .28));
+  filter: drop-shadow(0 8px 16px rgba(50, 101, 234, .2));
 }
-.cameraPoseScene { position: relative; display: block; width: 102px; height: 88px; overflow: hidden; background: radial-gradient(circle at 50% 42%, rgba(73, 113, 208, .16), transparent 62%); border-radius: 17px; perspective: 260px; transform-style: preserve-3d; }
-.cameraPosePlane { position: absolute; right: 9px; bottom: 5px; left: 9px; height: 42px; background: repeating-linear-gradient(90deg, rgba(146, 174, 235, .11) 0 1px, transparent 1px 13px), repeating-linear-gradient(0deg, rgba(146, 174, 235, .11) 0 1px, transparent 1px 13px); border: 1px solid rgba(146, 174, 235, .12); transform: rotateX(67deg); }
-.cameraPoseHead { position: absolute; z-index: 2; top: 47%; left: 50%; display: block; width: 38px; height: 46px; transform-style: preserve-3d; transition: transform 90ms linear, opacity 160ms ease; }
-.cameraPoseHead i { position: absolute; display: block; box-sizing: border-box; font-style: normal; }
-.cameraPoseFace { inset: 0; overflow: visible; background: linear-gradient(145deg, #eef4ff, #87aaf6); border: 1px solid rgba(255, 255, 255, .7); border-radius: 48% 48% 44% 44%; box-shadow: inset -7px -4px 10px rgba(25, 63, 146, .22), 0 8px 18px rgba(0, 0, 0, .26); transform: translateZ(2px); }
-.cameraPoseEyes { top: 15px; left: 8px; width: 5px; height: 4px; background: #16346e; border-radius: 50%; box-shadow: 17px 0 #16346e; transform: translateZ(4px); }
-.cameraPoseNose { top: 21px; left: 50%; width: 5px; height: 10px; background: #dbe7ff; border: 1px solid rgba(37, 77, 163, .34); border-radius: 50% 50% 65% 65%; transform: translateX(-50%) translateZ(8px); }
-.cameraPoseVector { top: 50%; left: 50%; width: 3px; height: 33px; background: linear-gradient(#fff, #74a2ff); border-radius: 4px; box-shadow: 0 0 8px rgba(116, 162, 255, .55); transform: translate3d(-50%, -28px, 12px); transform-origin: 50% 100%; }
-.cameraPoseVector::before { position: absolute; top: -3px; left: 50%; width: 8px; height: 8px; content: ''; border-top: 3px solid #fff; border-right: 3px solid #fff; transform: translateX(-50%) rotate(-45deg); }
-.cameraPoseHead.isTarget { z-index: 1; opacity: .42; transform: translate(-50%, -50%) rotateZ(var(--target-roll)) rotateX(var(--target-pitch)) rotateY(var(--target-yaw)) scale(1.13); }
-.cameraPoseHead.isTarget .cameraPoseFace { background: rgba(72, 119, 229, .18); border: 2px dashed #78a0ff; box-shadow: 0 0 16px rgba(69, 111, 211, .3); }
-.cameraPoseHead.isTarget .cameraPoseEyes,
-.cameraPoseHead.isTarget .cameraPoseNose { opacity: .35; }
-.cameraPoseHead.isCurrent { opacity: .25; transform: translate(-50%, -50%) rotateZ(var(--sensor-roll)) rotateX(var(--sensor-pitch)) rotateY(var(--sensor-yaw)) scale(.82); }
-.cameraPoseHead.isCurrent.isDetected { opacity: 1; }
-.cameraPosePreview .cameraPoseHead.isPreview { top: 50%; right: 35px; left: auto; transform: translate(50%, -50%) rotateZ(var(--preview-roll)) rotateX(var(--preview-pitch)) rotateY(var(--preview-yaw)) scale(.76); }
+.cameraMovementGuide > small,
+.cameraGuidanceDial > small { position: absolute; bottom: -18px; color: #8494b2; font-size: 8px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+.cameraGuidanceMotion { position: relative; width: 58px; height: 58px; background: radial-gradient(circle, rgba(255, 255, 255, .08) 0 3px, transparent 4px); border: 1px solid rgba(182, 202, 248, .18); border-radius: 50%; }
+.cameraGuidanceMotion::before,
+.cameraGuidanceMotion::after { position: absolute; content: ''; background: rgba(182, 202, 248, .12); }
+.cameraGuidanceMotion::before { top: 4px; bottom: 4px; left: 50%; width: 1px; }
+.cameraGuidanceMotion::after { top: 50%; right: 4px; left: 4px; height: 1px; }
+.cameraGuidanceTargetVector,
+.cameraGuidanceSensorVector { position: absolute; z-index: 1; top: 50%; left: 50%; width: var(--target-length); height: 3px; background: #6794ff; border-radius: 3px; box-shadow: 0 0 8px rgba(103, 148, 255, .58); transform: rotate(var(--target-angle)); transform-origin: 0 50%; }
+.cameraGuidanceTargetVector::after,
+.cameraGuidanceSensorVector::after { position: absolute; top: 50%; right: -4px; width: 9px; height: 9px; content: ''; background: #6794ff; border-radius: 50%; box-shadow: 0 0 0 3px rgba(103, 148, 255, .24); transform: translateY(-50%); }
+.cameraGuidanceSensorVector { z-index: 2; width: var(--sensor-length); background: #fff; box-shadow: 0 0 8px rgba(255, 255, 255, .58); opacity: .25; transform: rotate(var(--sensor-angle)); transition: width 90ms linear, transform 90ms linear, opacity 160ms ease; }
+.cameraGuidanceSensorVector::after { background: #fff; box-shadow: 0 0 0 3px rgba(255, 255, 255, .2); }
+.cameraGuidanceSensorVector.isDetected { opacity: 1; }
 .cameraGuidanceOverlay.isComplete { border-color: rgba(92, 226, 139, .5); }
 .cameraGuidanceOverlay.isComplete .cameraGuidanceDial {
   color: #d9ffe8;
@@ -667,7 +644,7 @@
 }
 .cameraGuidanceCopy { display: grid; gap: 2px; min-width: 0; }
 .cameraGuidanceCopy span { color: #9fb7ee; font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
-.cameraGuidanceCopy strong { overflow: hidden; font-size: clamp(17px, 3vw, 23px); text-overflow: ellipsis; white-space: nowrap; }
+.cameraGuidanceCopy strong { overflow: hidden; font-size: clamp(15px, 2.5vw, 21px); line-height: 1.15; text-overflow: ellipsis; }
 .cameraGuidanceCopy small { color: #bec8d8; font-size: 11px; }
 
 .videoError {
@@ -843,10 +820,13 @@
   .callActions { bottom: calc(10px + env(safe-area-inset-bottom)); }
   .videoControlButton { width: 44px; height: 44px; justify-content: center; padding: 0; }
   .videoControlButton span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-  .cameraDirectionPanel { right: 10px; bottom: calc(68px + env(safe-area-inset-bottom)); width: min(232px, calc(100% - 20px)); }
-  .cameraGuidanceOverlay { grid-template-columns: 82px minmax(0, 1fr) 30px; gap: 8px; width: calc(100% - 20px); padding: 8px; border-radius: 18px; }
-  .cameraGuidanceDial { width: 82px; height: 76px; }
-  .cameraGuidanceDial .cameraPoseScene { transform: scale(.72); }
+  .cameraDirectionPanel { right: 10px; bottom: calc(68px + env(safe-area-inset-bottom)); width: min(300px, calc(100% - 20px)); }
+  .cameraGuidanceOverlay { grid-template-columns: 132px minmax(0, 1fr) 30px; gap: 7px; width: calc(100% - 20px); padding: 8px; border-radius: 18px; }
+  .cameraGuidanceVisuals { grid-template-columns: repeat(2, 62px); gap: 6px; }
+  .cameraMovementGuide,
+  .cameraGuidanceDial { width: 62px; height: 62px; }
+  .cameraMovementGuide > span,
+  .cameraGuidanceMotion { transform: scale(.78); }
   .cameraGuidanceDial svg { width: 36px; height: 36px; }
   .cameraGuidanceCopy strong { font-size: 16px; }
   .videoError { bottom: 68px; }

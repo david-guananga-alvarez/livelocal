@@ -48,11 +48,10 @@ function normalizeAngle(value) {
   return ((value + 540) % 360) - 180;
 }
 
-function describeCameraVector(yawDegrees, pitchDegrees, rollDegrees = 0, includeDegrees = true) {
+function describeCameraVector(yawDegrees, pitchDegrees, includeDegrees = true) {
   const parts = [];
   const yaw = Number(yawDegrees) || 0;
   const pitch = Number(pitchDegrees) || 0;
-  const roll = Number(rollDegrees) || 0;
 
   if (Math.abs(yaw) >= 1) {
     parts.push(`${yaw > 0 ? 'derecha' : 'izquierda'}${includeDegrees ? ` ${Math.round(Math.abs(yaw))}°` : ''}`);
@@ -60,25 +59,22 @@ function describeCameraVector(yawDegrees, pitchDegrees, rollDegrees = 0, include
   if (Math.abs(pitch) >= 1) {
     parts.push(`${pitch > 0 ? 'arriba' : 'abajo'}${includeDegrees ? ` ${Math.round(Math.abs(pitch))}°` : ''}`);
   }
-  if (Math.abs(roll) >= 1) {
-    parts.push(`${roll > 0 ? 'giro horario' : 'giro antihorario'}${includeDegrees ? ` ${Math.round(Math.abs(roll))}°` : ''}`);
-  }
-
   return parts.length ? parts.join(' · ') : 'centro';
 }
 
-function joystickToCameraVector(position, maxDegrees, rollNormalized = 0) {
+function describeMovementVector(x, y) {
+  const parts = [];
+
+  if (Math.abs(y) >= JOYSTICK_DEAD_ZONE) parts.push(y < 0 ? 'avanza' : 'retrocede');
+  if (Math.abs(x) >= JOYSTICK_DEAD_ZONE) parts.push(x > 0 ? 'a la derecha' : 'a la izquierda');
+
+  return parts.length ? parts.join(' · ') : 'quieto';
+}
+
+function joystickToCameraVector(position, maxDegrees) {
   const magnitude = Math.hypot(position.x, position.y);
   if (magnitude <= JOYSTICK_DEAD_ZONE) {
-    const rollDegrees = clamp(rollNormalized, -1, 1) * maxDegrees;
-    return {
-      vectorX: 0,
-      vectorY: 0,
-      yawDegrees: 0,
-      pitchDegrees: 0,
-      rollDegrees,
-      targetDegrees: Math.abs(rollDegrees),
-    };
+    return { vectorX: 0, vectorY: 0, yawDegrees: 0, pitchDegrees: 0, targetDegrees: 0 };
   }
 
   const outputMagnitude = clamp(
@@ -91,28 +87,14 @@ function joystickToCameraVector(position, maxDegrees, rollNormalized = 0) {
   const vectorY = position.y * scale;
   const yawDegrees = vectorX * maxDegrees;
   const pitchDegrees = -vectorY * maxDegrees;
-  const rollDegrees = clamp(rollNormalized, -1, 1) * maxDegrees;
 
   return {
     vectorX,
     vectorY,
     yawDegrees,
     pitchDegrees,
-    rollDegrees,
-    targetDegrees: Math.hypot(yawDegrees, pitchDegrees, rollDegrees),
+    targetDegrees: Math.hypot(yawDegrees, pitchDegrees),
   };
-}
-
-function CameraPose({ className = '' }) {
-  return (
-    <span className={`cameraPoseHead ${className}`}>
-      <i className="cameraPoseFace">
-        <i className="cameraPoseEyes" />
-        <i className="cameraPoseNose" />
-      </i>
-      <i className="cameraPoseVector" />
-    </span>
-  );
 }
 
 export default function WebRTCRoom({ roomId, role, isActive = true }) {
@@ -128,7 +110,7 @@ export default function WebRTCRoom({ roomId, role, isActive = true }) {
   const pendingIceRef = useRef([]);
   const offerSentRef = useRef(false);
   const remoteControlEnabledRef = useRef(false);
-  const orientationRef = useRef({ alpha: null, beta: null, gamma: null });
+  const orientationRef = useRef({ alpha: null, beta: null });
   const commandBaselineRef = useRef(null);
   const activeCommandRef = useRef(null);
   const completedCommandRef = useRef('');
@@ -137,6 +119,11 @@ export default function WebRTCRoom({ roomId, role, isActive = true }) {
   const joystickGestureRef = useRef(null);
   const joystickSequenceRef = useRef(0);
   const joystickLastSentAtRef = useRef(0);
+  const movementJoystickRef = useRef(null);
+  const movementPointerRef = useRef(null);
+  const movementGestureRef = useRef(null);
+  const movementSequenceRef = useRef(0);
+  const movementLastSentAtRef = useRef(0);
 
   const [started, setStarted] = useState(false);
   const [error, setError] = useState('');
@@ -153,22 +140,17 @@ export default function WebRTCRoom({ roomId, role, isActive = true }) {
   const [orientationTracking, setOrientationTracking] = useState(false);
   const [orientationDetected, setOrientationDetected] = useState(false);
   const [activeCommand, setActiveCommand] = useState(null);
+  const [activeMovement, setActiveMovement] = useState(null);
   const [guidanceProgress, setGuidanceProgress] = useState(0);
   const [controlAngle, setControlAngle] = useState(30);
   const [controlPanelOpen, setControlPanelOpen] = useState(false);
   const [clientCommand, setClientCommand] = useState(null);
+  const [clientMovement, setClientMovement] = useState(null);
   const [controlRequest, setControlRequest] = useState(null);
   const [controlRequestStatus, setControlRequestStatus] = useState('idle');
   const [joystickPosition, setJoystickPosition] = useState({ x: 0, y: 0, active: false });
-  const [joystickRoll, setJoystickRoll] = useState(0);
-  const [guidanceVector, setGuidanceVector] = useState({
-    yaw: 0,
-    pitch: 0,
-    roll: 0,
-    remainingYaw: 0,
-    remainingPitch: 0,
-    remainingRoll: 0,
-  });
+  const [movementPosition, setMovementPosition] = useState({ x: 0, y: 0, active: false });
+  const [guidanceVector, setGuidanceVector] = useState({ yaw: 0, pitch: 0, remainingYaw: 0, remainingPitch: 0 });
   const isMobileDevice = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
   const canSwitchCamera = isMobileDevice || videoDevices.length > 1;
 
@@ -193,7 +175,6 @@ export default function WebRTCRoom({ roomId, role, isActive = true }) {
       const reading = {
         alpha: Number.isFinite(event.alpha) ? event.alpha : null,
         beta: Number.isFinite(event.beta) ? event.beta : null,
-        gamma: Number.isFinite(event.gamma) ? event.gamma : null,
       };
 
       if (reading.alpha === null && reading.beta === null) return;
@@ -212,20 +193,15 @@ export default function WebRTCRoom({ roomId, role, isActive = true }) {
       const baseline = commandBaselineRef.current;
       if (baseline.alpha === null || baseline.beta === null || reading.alpha === null || reading.beta === null) return;
 
-      // La posición del stick se traduce a tres objetivos simultáneos:
-      // alpha controla el giro horizontal, beta la inclinación vertical y
-      // gamma el giro axial del teléfono.
+      // La punta elegida por el Cliente se traduce a dos objetivos simultáneos:
+      // alpha controla el giro horizontal y beta la inclinación vertical.
       // El estándar expresa alpha en sentido opuesto al rumbo: se invierte para
       // que la derecha del stick coincida con la derecha percibida por el usuario.
       const currentYaw = -normalizeAngle(reading.alpha - baseline.alpha);
       const currentPitch = reading.beta - baseline.beta;
-      const currentRoll = baseline.gamma !== null && reading.gamma !== null
-        ? normalizeAngle(reading.gamma - baseline.gamma)
-        : 0;
       const remainingYaw = command.yawDegrees - currentYaw;
       const remainingPitch = command.pitchDegrees - currentPitch;
-      const remainingRoll = command.rollDegrees - currentRoll;
-      const remainingDistance = Math.hypot(remainingYaw, remainingPitch, remainingRoll);
+      const remainingDistance = Math.hypot(remainingYaw, remainingPitch);
       const targetDistance = Math.max(command.targetDegrees, 1);
       const progress = clamp(1 - remainingDistance / targetDistance, 0, 1);
       const completionTolerance = clamp(targetDistance * 0.12, 2.5, 5);
@@ -234,10 +210,8 @@ export default function WebRTCRoom({ roomId, role, isActive = true }) {
       setGuidanceVector({
         yaw: currentYaw,
         pitch: currentPitch,
-        roll: currentRoll,
         remainingYaw,
         remainingPitch,
-        remainingRoll,
       });
 
       const completionKey = `${command.id}:${command.sequence}`;
@@ -315,6 +289,7 @@ export default function WebRTCRoom({ roomId, role, isActive = true }) {
       setControlRequestStatus(enabled ? 'accepted' : 'idle');
       if (!enabled) {
         setClientCommand(null);
+        setClientMovement(null);
       }
       return;
     }
@@ -326,10 +301,13 @@ export default function WebRTCRoom({ roomId, role, isActive = true }) {
       setControlPanelOpen(false);
       setControlRequestStatus('idle');
       setClientCommand(null);
+      setClientMovement(null);
       setJoystickPosition({ x: 0, y: 0, active: false });
-      setJoystickRoll(0);
+      setMovementPosition({ x: 0, y: 0, active: false });
       joystickPointerRef.current = null;
       joystickGestureRef.current = null;
+      movementPointerRef.current = null;
+      movementGestureRef.current = null;
       setStatus('El Local ha revocado la dirección remota');
       return;
     }
@@ -366,6 +344,42 @@ export default function WebRTCRoom({ roomId, role, isActive = true }) {
       return;
     }
 
+    if (data.type === 'camera-movement-command') {
+      if (role !== 'Local' || !remoteControlEnabledRef.current) return;
+
+      const movementX = clamp(Number(data.movementX) || 0, -1, 1);
+      const movementY = clamp(Number(data.movementY) || 0, -1, 1);
+      if (Math.hypot(movementX, movementY) < JOYSTICK_DEAD_ZONE) return;
+
+      const movement = {
+        id: data.commandId,
+        sequence: Math.max(Number(data.sequence) || 0, 0),
+        x: movementX,
+        y: movementY,
+        final: data.final !== false,
+      };
+      setActiveMovement(movement);
+      setActiveView('local');
+      setStatus(`Movimiento: ${describeMovementVector(movementX, movementY)}`);
+
+      await send({
+        type: 'camera-movement-accepted',
+        commandId: movement.id,
+        sequence: movement.sequence,
+      });
+      return;
+    }
+
+    if (data.type === 'camera-movement-accepted') {
+      if (role !== 'Cliente') return;
+      setClientMovement(movement =>
+        movement?.id === data.commandId && (data.sequence === undefined || movement.sequence === data.sequence)
+          ? { ...movement, status: movement.final ? 'active' : 'preview' }
+          : movement
+      );
+      return;
+    }
+
     if (data.type === 'camera-control-command') {
       if (role !== 'Local' || !remoteControlEnabledRef.current) return;
 
@@ -377,10 +391,7 @@ export default function WebRTCRoom({ roomId, role, isActive = true }) {
       const pitchDegrees = Number.isFinite(Number(data.pitchDegrees))
         ? clamp(Number(data.pitchDegrees), -60, 60)
         : (legacyDirection?.pitch || 0) * legacyDegrees;
-      const rollDegrees = Number.isFinite(Number(data.rollDegrees))
-        ? clamp(Number(data.rollDegrees), -60, 60)
-        : 0;
-      const targetDegrees = Math.hypot(yawDegrees, pitchDegrees, rollDegrees);
+      const targetDegrees = Math.hypot(yawDegrees, pitchDegrees);
       if (targetDegrees < 1) return;
 
       const previousCommand = activeCommandRef.current;
@@ -393,7 +404,6 @@ export default function WebRTCRoom({ roomId, role, isActive = true }) {
         sequence,
         yawDegrees,
         pitchDegrees,
-        rollDegrees,
         targetDegrees,
         maxDegrees: clamp(Number(data.maxDegrees) || Math.max(targetDegrees, legacyDegrees), 5, 60),
         final: data.final !== false,
@@ -402,7 +412,7 @@ export default function WebRTCRoom({ roomId, role, isActive = true }) {
 
       if (isNewGesture) {
         commandBaselineRef.current =
-          orientationRef.current.alpha !== null || orientationRef.current.beta !== null || orientationRef.current.gamma !== null
+          orientationRef.current.alpha !== null || orientationRef.current.beta !== null
             ? { ...orientationRef.current }
             : null;
       }
@@ -414,14 +424,12 @@ export default function WebRTCRoom({ roomId, role, isActive = true }) {
         setGuidanceVector({
           yaw: 0,
           pitch: 0,
-          roll: 0,
           remainingYaw: yawDegrees,
           remainingPitch: pitchDegrees,
-          remainingRoll: rollDegrees,
         });
       }
       setActiveView('local');
-      setStatus(`Objetivo: ${describeCameraVector(yawDegrees, pitchDegrees, rollDegrees)}`);
+      setStatus(`Objetivo: ${describeCameraVector(yawDegrees, pitchDegrees)}`);
 
       await send({
         type: 'camera-control-accepted',
@@ -453,15 +461,19 @@ export default function WebRTCRoom({ roomId, role, isActive = true }) {
 
     if (data.type === 'camera-control-cancel') {
       setClientCommand(null);
+      setClientMovement(null);
       setJoystickPosition({ x: 0, y: 0, active: false });
-      setJoystickRoll(0);
+      setMovementPosition({ x: 0, y: 0, active: false });
       joystickPointerRef.current = null;
       joystickGestureRef.current = null;
+      movementPointerRef.current = null;
+      movementGestureRef.current = null;
       activeCommandRef.current = null;
       commandBaselineRef.current = null;
       setActiveCommand(null);
+      setActiveMovement(null);
       setGuidanceProgress(0);
-      setGuidanceVector({ yaw: 0, pitch: 0, roll: 0, remainingYaw: 0, remainingPitch: 0, remainingRoll: 0 });
+      setGuidanceVector({ yaw: 0, pitch: 0, remainingYaw: 0, remainingPitch: 0 });
       return;
     }
 
@@ -1006,8 +1018,9 @@ export default function WebRTCRoom({ roomId, role, isActive = true }) {
     activeCommandRef.current = null;
     commandBaselineRef.current = null;
     setActiveCommand(null);
+    setActiveMovement(null);
     setGuidanceProgress(0);
-    setGuidanceVector({ yaw: 0, pitch: 0, roll: 0, remainingYaw: 0, remainingPitch: 0, remainingRoll: 0 });
+    setGuidanceVector({ yaw: 0, pitch: 0, remainingYaw: 0, remainingPitch: 0 });
     setOrientationTracking(false);
     setOrientationDetected(false);
 
@@ -1019,8 +1032,8 @@ export default function WebRTCRoom({ roomId, role, isActive = true }) {
     setStatus('Dirección remota revocada');
   }
 
-  function readJoystickPosition(event) {
-    const rect = joystickRef.current?.getBoundingClientRect();
+  function readControlPosition(control, event) {
+    const rect = control.current?.getBoundingClientRect();
     if (!rect) return { x: 0, y: 0 };
 
     const radius = Math.max(Math.min(rect.width, rect.height) / 2 - 25, 1);
@@ -1044,10 +1057,10 @@ export default function WebRTCRoom({ roomId, role, isActive = true }) {
     joystickLastSentAtRef.current = 0;
   }
 
-  async function publishJoystickPosition(position, final = false, rollNormalized = joystickRoll) {
+  async function publishJoystickPosition(position, final = false) {
     if (role !== 'Cliente' || !remoteControlAvailable) return;
 
-    const movement = joystickToCameraVector(position, controlAngle, rollNormalized);
+    const movement = joystickToCameraVector(position, controlAngle);
     if (movement.targetDegrees < 1) {
       if (final) await cancelCameraDirection();
       return;
@@ -1060,7 +1073,7 @@ export default function WebRTCRoom({ roomId, role, isActive = true }) {
     if (!joystickGestureRef.current) createJoystickGesture();
 
     // La zona muerta y la escala radial reproducen el tacto de un stick analógico.
-    const { vectorX, vectorY, yawDegrees, pitchDegrees, rollDegrees } = movement;
+    const { vectorX, vectorY, yawDegrees, pitchDegrees } = movement;
     const sequence = joystickSequenceRef.current + 1;
     joystickSequenceRef.current = sequence;
 
@@ -1071,7 +1084,6 @@ export default function WebRTCRoom({ roomId, role, isActive = true }) {
       vectorY,
       yawDegrees,
       pitchDegrees,
-      rollDegrees,
       final,
       status: final ? 'sent' : 'preview',
     };
@@ -1089,7 +1101,6 @@ export default function WebRTCRoom({ roomId, role, isActive = true }) {
         vectorY,
         yawDegrees,
         pitchDegrees,
-        rollDegrees,
         maxDegrees: controlAngle,
         final,
       });
@@ -1110,31 +1121,30 @@ export default function WebRTCRoom({ roomId, role, isActive = true }) {
     joystickPointerRef.current = event.pointerId;
     joystickRef.current?.setPointerCapture?.(event.pointerId);
     createJoystickGesture();
-    setJoystickRoll(0);
 
-    const position = readJoystickPosition(event);
+    const position = readControlPosition(joystickRef, event);
     setJoystickPosition({ ...position, active: true });
-    publishJoystickPosition(position, false, 0);
+    publishJoystickPosition(position);
   }
 
   function handleJoystickPointerMove(event) {
     if (joystickPointerRef.current !== event.pointerId) return;
 
     event.preventDefault();
-    const position = readJoystickPosition(event);
+    const position = readControlPosition(joystickRef, event);
     setJoystickPosition({ ...position, active: true });
-    publishJoystickPosition(position, false, 0);
+    publishJoystickPosition(position);
   }
 
   function handleJoystickPointerUp(event) {
     if (joystickPointerRef.current !== event.pointerId) return;
 
     event.preventDefault();
-    const position = readJoystickPosition(event);
+    const position = readControlPosition(joystickRef, event);
     joystickRef.current?.releasePointerCapture?.(event.pointerId);
     joystickPointerRef.current = null;
     setJoystickPosition({ x: 0, y: 0, active: false });
-    publishJoystickPosition(position, true, 0);
+    publishJoystickPosition(position, true);
     joystickGestureRef.current = null;
   }
 
@@ -1160,41 +1170,140 @@ export default function WebRTCRoom({ roomId, role, isActive = true }) {
     event.preventDefault();
     createJoystickGesture();
     setJoystickPosition({ ...position, active: true });
-    publishJoystickPosition(position, true, 0);
+    publishJoystickPosition(position, true);
     joystickGestureRef.current = null;
     window.setTimeout(() => setJoystickPosition({ x: 0, y: 0, active: false }), 140);
   }
 
-  function handleRollStart() {
-    if (!joystickGestureRef.current) createJoystickGesture();
+  function createMovementGesture() {
+    movementGestureRef.current =
+      globalThis.crypto?.randomUUID?.() ||
+      `movement-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    movementSequenceRef.current = 0;
+    movementLastSentAtRef.current = 0;
   }
 
-  function handleRollChange(event) {
-    const roll = clamp(Number(event.target.value) || 0, -1, 1);
-    setJoystickRoll(roll);
-    if (!joystickGestureRef.current) createJoystickGesture();
-    publishJoystickPosition({ x: 0, y: 0 }, false, roll);
+  async function publishMovementPosition(position, final = false) {
+    if (role !== 'Cliente' || !remoteControlAvailable) return;
+
+    const magnitude = Math.hypot(position.x, position.y);
+    if (magnitude <= JOYSTICK_DEAD_ZONE) return;
+
+    const outputMagnitude = clamp((magnitude - JOYSTICK_DEAD_ZONE) / (1 - JOYSTICK_DEAD_ZONE), 0, 1);
+    const scale = outputMagnitude / magnitude;
+    const movementX = position.x * scale;
+    const movementY = position.y * scale;
+    const now = performance.now();
+    if (!final && now - movementLastSentAtRef.current < JOYSTICK_SEND_INTERVAL) return;
+    movementLastSentAtRef.current = now;
+
+    if (!movementGestureRef.current) createMovementGesture();
+    const sequence = movementSequenceRef.current + 1;
+    movementSequenceRef.current = sequence;
+    const movement = {
+      id: movementGestureRef.current,
+      sequence,
+      x: movementX,
+      y: movementY,
+      final,
+      status: final ? 'sent' : 'preview',
+    };
+    setClientMovement(movement);
+    setError('');
+
+    try {
+      await send({
+        type: 'camera-movement-command',
+        commandId: movement.id,
+        sequence,
+        movementX,
+        movementY,
+        final,
+      });
+    } catch (controlError) {
+      setClientMovement(current =>
+        current?.id === movement.id && current.sequence === sequence
+          ? { ...current, status: 'error' }
+          : current
+      );
+      setError(controlError?.message || 'No se pudo enviar el movimiento');
+    }
   }
 
-  function handleRollCommit() {
-    if (!joystickGestureRef.current) return;
+  function handleMovementPointerDown(event) {
+    if (movementPointerRef.current !== null) return;
 
-    publishJoystickPosition({ x: 0, y: 0 }, true, joystickRoll);
-    joystickGestureRef.current = null;
-    setJoystickRoll(0);
+    event.preventDefault();
+    movementPointerRef.current = event.pointerId;
+    movementJoystickRef.current?.setPointerCapture?.(event.pointerId);
+    createMovementGesture();
+    const position = readControlPosition(movementJoystickRef, event);
+    setMovementPosition({ ...position, active: true });
+    publishMovementPosition(position);
+  }
+
+  function handleMovementPointerMove(event) {
+    if (movementPointerRef.current !== event.pointerId) return;
+
+    event.preventDefault();
+    const position = readControlPosition(movementJoystickRef, event);
+    setMovementPosition({ ...position, active: true });
+    publishMovementPosition(position);
+  }
+
+  function handleMovementPointerUp(event) {
+    if (movementPointerRef.current !== event.pointerId) return;
+
+    event.preventDefault();
+    const position = readControlPosition(movementJoystickRef, event);
+    movementJoystickRef.current?.releasePointerCapture?.(event.pointerId);
+    movementPointerRef.current = null;
+    setMovementPosition({ x: 0, y: 0, active: false });
+    publishMovementPosition(position, true);
+    movementGestureRef.current = null;
+  }
+
+  function handleMovementPointerCancel(event) {
+    if (movementPointerRef.current !== event.pointerId) return;
+
+    movementPointerRef.current = null;
+    movementGestureRef.current = null;
+    setMovementPosition({ x: 0, y: 0, active: false });
+  }
+
+  function handleMovementKeyDown(event) {
+    const keyboardVectors = {
+      ArrowUp: { x: 0, y: -1 },
+      ArrowDown: { x: 0, y: 1 },
+      ArrowLeft: { x: -1, y: 0 },
+      ArrowRight: { x: 1, y: 0 },
+    };
+    const position = keyboardVectors[event.key];
+    if (!position) return;
+
+    event.preventDefault();
+    createMovementGesture();
+    setMovementPosition({ ...position, active: true });
+    publishMovementPosition(position, true);
+    movementGestureRef.current = null;
+    window.setTimeout(() => setMovementPosition({ x: 0, y: 0, active: false }), 140);
   }
 
   async function cancelCameraDirection() {
     joystickPointerRef.current = null;
     joystickGestureRef.current = null;
+    movementPointerRef.current = null;
+    movementGestureRef.current = null;
     setJoystickPosition({ x: 0, y: 0, active: false });
-    setJoystickRoll(0);
+    setMovementPosition({ x: 0, y: 0, active: false });
     setClientCommand(null);
+    setClientMovement(null);
     activeCommandRef.current = null;
     commandBaselineRef.current = null;
     setActiveCommand(null);
+    setActiveMovement(null);
     setGuidanceProgress(0);
-    setGuidanceVector({ yaw: 0, pitch: 0, roll: 0, remainingYaw: 0, remainingPitch: 0, remainingRoll: 0 });
+    setGuidanceVector({ yaw: 0, pitch: 0, remainingYaw: 0, remainingPitch: 0 });
     await send({ type: 'camera-control-cancel' });
   }
 
@@ -1202,8 +1311,9 @@ export default function WebRTCRoom({ roomId, role, isActive = true }) {
     activeCommandRef.current = null;
     commandBaselineRef.current = null;
     setActiveCommand(null);
+    setActiveMovement(null);
     setGuidanceProgress(0);
-    setGuidanceVector({ yaw: 0, pitch: 0, roll: 0, remainingYaw: 0, remainingPitch: 0, remainingRoll: 0 });
+    setGuidanceVector({ yaw: 0, pitch: 0, remainingYaw: 0, remainingPitch: 0 });
     send({ type: 'camera-control-cancel' });
   }
 
@@ -1377,14 +1487,18 @@ export default function WebRTCRoom({ roomId, role, isActive = true }) {
     setOrientationTracking(false);
     setOrientationDetected(false);
     setActiveCommand(null);
+    setActiveMovement(null);
     setGuidanceProgress(0);
-    setGuidanceVector({ yaw: 0, pitch: 0, roll: 0, remainingYaw: 0, remainingPitch: 0, remainingRoll: 0 });
+    setGuidanceVector({ yaw: 0, pitch: 0, remainingYaw: 0, remainingPitch: 0 });
     setControlPanelOpen(false);
     setClientCommand(null);
+    setClientMovement(null);
     setJoystickPosition({ x: 0, y: 0, active: false });
-    setJoystickRoll(0);
+    setMovementPosition({ x: 0, y: 0, active: false });
     joystickPointerRef.current = null;
     joystickGestureRef.current = null;
+    movementPointerRef.current = null;
+    movementGestureRef.current = null;
     setControlRequest(null);
     setControlRequestStatus('idle');
     setStatus('Sala detenida');
@@ -1395,32 +1509,49 @@ export default function WebRTCRoom({ roomId, role, isActive = true }) {
   // -------------------------
 
   const activeCommandLabel = activeCommand
-    ? describeCameraVector(activeCommand.yawDegrees, activeCommand.pitchDegrees, activeCommand.rollDegrees)
+    ? describeCameraVector(activeCommand.yawDegrees, activeCommand.pitchDegrees)
     : '';
   const clientCommandLabel = clientCommand
-    ? describeCameraVector(clientCommand.yawDegrees, clientCommand.pitchDegrees, clientCommand.rollDegrees)
+    ? describeCameraVector(clientCommand.yawDegrees, clientCommand.pitchDegrees)
     : '';
-  const joystickVector = joystickToCameraVector(joystickPosition, controlAngle, joystickRoll);
+  const joystickVector = joystickToCameraVector(joystickPosition, controlAngle);
   const joystickLabel = describeCameraVector(
     joystickVector.yawDegrees,
-    joystickVector.pitchDegrees,
-    joystickVector.rollDegrees
+    joystickVector.pitchDegrees
   );
-  const guidanceStyle = activeCommand
-    ? {
-        '--guidance-progress': `${Math.round(guidanceProgress * 360)}deg`,
-        '--target-yaw': `${activeCommand.yawDegrees}deg`,
-        '--target-pitch': `${-activeCommand.pitchDegrees}deg`,
-        '--target-roll': `${activeCommand.rollDegrees}deg`,
-        '--sensor-yaw': `${guidanceVector.yaw}deg`,
-        '--sensor-pitch': `${-guidanceVector.pitch}deg`,
-        '--sensor-roll': `${guidanceVector.roll}deg`,
-      }
-    : undefined;
-  const joystickPoseStyle = {
-    '--preview-yaw': `${joystickVector.yawDegrees}deg`,
-    '--preview-pitch': `${-joystickVector.pitchDegrees}deg`,
-    '--preview-roll': `${joystickVector.rollDegrees}deg`,
+  const movementLabel = describeMovementVector(movementPosition.x, movementPosition.y);
+  const activeMovementLabel = activeMovement
+    ? describeMovementVector(activeMovement.x, activeMovement.y)
+    : '';
+  const clientMovementLabel = clientMovement
+    ? describeMovementVector(clientMovement.x, clientMovement.y)
+    : '';
+  const guidanceRange = activeCommand?.maxDegrees || 30;
+  const targetLength = activeCommand
+    ? clamp(activeCommand.targetDegrees / guidanceRange, 0, 1) * 25
+    : 0;
+  const sensorLength = activeCommand
+    ? clamp(Math.hypot(guidanceVector.yaw, guidanceVector.pitch) / guidanceRange, 0, 1) * 25
+    : 0;
+  const guidanceStyle = {
+    '--guidance-progress': `${Math.round(guidanceProgress * 360)}deg`,
+    '--target-angle': `${Math.atan2(-(activeCommand?.pitchDegrees || 0), activeCommand?.yawDegrees || 0) * 180 / Math.PI}deg`,
+    '--target-length': `${targetLength}px`,
+    '--sensor-angle': `${Math.atan2(-guidanceVector.pitch, guidanceVector.yaw) * 180 / Math.PI}deg`,
+    '--sensor-length': `${sensorLength}px`,
+  };
+  const aimControlStyle = {
+    '--joystick-x': `${joystickPosition.x * 40}px`,
+    '--joystick-y': `${joystickPosition.y * 40}px`,
+    '--aim-angle': `${Math.atan2(joystickPosition.y, joystickPosition.x) * 180 / Math.PI}deg`,
+    '--aim-length': `${Math.hypot(joystickPosition.x, joystickPosition.y) * 40}px`,
+  };
+  const movementControlStyle = {
+    '--joystick-x': `${movementPosition.x * 40}px`,
+    '--joystick-y': `${movementPosition.y * 40}px`,
+  };
+  const movementGuideStyle = {
+    '--movement-angle': `${Math.atan2(activeMovement?.x || 0, -(activeMovement?.y || 0)) * 180 / Math.PI}deg`,
   };
 
   return (
@@ -1455,34 +1586,44 @@ export default function WebRTCRoom({ roomId, role, isActive = true }) {
           </span>
           {started && !remoteAvailable && <div className="remoteWaiting"><Camera size={22} /><b>Esperando la cámara del {role === 'Local' ? 'Cliente' : 'Local'}</b><small>La otra persona debe entrar en la sala y permitir su cámara.</small></div>}
           {started && activeView !== 'remote' && <button type="button" className="videoFocusButton" onClick={() => setActiveView('remote')}>Ver en grande</button>}
-          {role === 'Local' && activeCommand && (
-            <div className={`cameraGuidanceOverlay ${activeCommand.completed ? 'isComplete' : ''}`} role="status" aria-live="polite">
-              <div
-                className="cameraGuidanceDial"
-                style={guidanceStyle}
-                aria-hidden="true"
-              >
-                {activeCommand.completed
-                  ? <Check size={42} />
-                  : (
-                    <span className="cameraPoseScene">
-                      <i className="cameraPosePlane" />
-                      <CameraPose className="isTarget" />
-                      <CameraPose className={`isCurrent ${orientationDetected ? 'isDetected' : ''}`} />
-                    </span>
-                  )}
+          {role === 'Local' && (activeCommand || activeMovement) && (
+            <div className={`cameraGuidanceOverlay ${activeCommand?.completed ? 'isComplete' : ''}`} role="status" aria-live="polite">
+              <div className="cameraGuidanceVisuals" aria-hidden="true">
+                <div className={`cameraMovementGuide ${activeMovement ? 'isActive' : ''}`} style={movementGuideStyle}>
+                  <span><i /></span>
+                  <small>Plano</small>
+                </div>
+                <div className="cameraGuidanceDial" style={guidanceStyle}>
+                  {activeCommand?.completed
+                    ? <Check size={36} />
+                    : activeCommand
+                      ? (
+                        <span className="cameraGuidanceMotion">
+                          <i className="cameraGuidanceTargetVector" />
+                          <i className={`cameraGuidanceSensorVector ${orientationDetected ? 'isDetected' : ''}`} />
+                        </span>
+                      )
+                      : <Crosshair size={26} />}
+                  <small>Cámara</small>
+                </div>
               </div>
               <div className="cameraGuidanceCopy">
-                <span>{activeCommand.completed ? 'Encuadre alcanzado' : 'Objetivo del joystick'}</span>
-                <strong>{activeCommand.completed ? 'Mantén esta posición' : activeCommandLabel}</strong>
+                <span>{activeCommand?.completed ? 'Encuadre alcanzado' : 'Instrucción del Cliente'}</span>
+                <strong>
+                  {activeMovement && `Camina: ${activeMovementLabel}`}
+                  {activeMovement && activeCommand && ' · '}
+                  {activeCommand && (activeCommand.completed ? 'Mantén la cámara' : `Apunta: ${activeCommandLabel}`)}
+                </strong>
                 <small>
-                  {activeCommand.completed
+                  {activeCommand?.completed
                     ? 'El Cliente ya ha recibido la confirmación.'
-                    : !activeCommand.final
-                      ? 'El Cliente está ajustando la dirección…'
-                      : orientationDetected
-                        ? `${Math.round(guidanceProgress * 100)}% · falta ${describeCameraVector(guidanceVector.remainingYaw, guidanceVector.remainingPitch, guidanceVector.remainingRoll)}`
-                        : `Mueve el móvil hacia ${activeCommandLabel}`}
+                    : activeCommand && !activeCommand.final
+                      ? 'El Cliente está ajustando la punta objetivo…'
+                      : activeCommand && orientationDetected
+                        ? `${Math.round(guidanceProgress * 100)}% · acerca la punta blanca a la azul`
+                        : activeCommand
+                          ? `Mueve el móvil hacia ${activeCommandLabel}`
+                          : 'Sigue la flecha sobre el plano horizontal.'}
                 </small>
               </div>
               <button type="button" onClick={dismissCameraGuidance} aria-label="Cerrar indicación">
@@ -1505,7 +1646,7 @@ export default function WebRTCRoom({ roomId, role, isActive = true }) {
               </button>
             </header>
 
-            <span className="cameraAngleLabel">Alcance máximo</span>
+            <span className="cameraAngleLabel">Giro máximo de la cámara</span>
             <div className="cameraAngleSelector" role="group" aria-label="Amplitud máxima del movimiento">
               {[15, 30, 45].map(angle => (
                 <button
@@ -1520,73 +1661,71 @@ export default function WebRTCRoom({ roomId, role, isActive = true }) {
               ))}
             </div>
 
-            <div
-              ref={joystickRef}
-              className={`cameraJoystick ${joystickPosition.active ? 'isActive' : ''}`}
-              role="group"
-              tabIndex={0}
-              aria-label="Joystick de dirección. Arrastra o usa las flechas del teclado"
-              style={{
-                '--joystick-x': `${joystickPosition.x * 40}px`,
-                '--joystick-y': `${joystickPosition.y * 40}px`,
-              }}
-              onPointerDown={handleJoystickPointerDown}
-              onPointerMove={handleJoystickPointerMove}
-              onPointerUp={handleJoystickPointerUp}
-              onPointerCancel={handleJoystickPointerCancel}
-              onKeyDown={handleJoystickKeyDown}
-              onContextMenu={event => event.preventDefault()}
-            >
-              <span className="cameraJoystickAxes" aria-hidden="true" />
-              <span className="cameraJoystickThumb" aria-hidden="true"><Crosshair size={21} /></span>
+            <div className="cameraControlPair">
+              <div className="cameraControlUnit">
+                <span>Movimiento</span>
+                <div
+                  ref={movementJoystickRef}
+                  className={`cameraJoystick movementJoystick ${movementPosition.active ? 'isActive' : ''}`}
+                  role="group"
+                  tabIndex={0}
+                  aria-label="Joystick de movimiento horizontal. Arrastra o usa las flechas"
+                  style={movementControlStyle}
+                  onPointerDown={handleMovementPointerDown}
+                  onPointerMove={handleMovementPointerMove}
+                  onPointerUp={handleMovementPointerUp}
+                  onPointerCancel={handleMovementPointerCancel}
+                  onKeyDown={handleMovementKeyDown}
+                  onContextMenu={event => event.preventDefault()}
+                >
+                  <span className="cameraJoystickAxes" aria-hidden="true" />
+                  <span className="cameraJoystickThumb" aria-hidden="true"><Gamepad2 size={18} /></span>
+                </div>
+                <small>{movementPosition.active ? movementLabel : 'Plano horizontal'}</small>
+              </div>
+
+              <div className="cameraControlUnit">
+                <span>Encuadre</span>
+                <div
+                  ref={joystickRef}
+                  className={`cameraJoystick cameraAimControl ${joystickPosition.active ? 'isActive' : ''}`}
+                  role="group"
+                  tabIndex={0}
+                  aria-label="Círculo de orientación. Arrastra la punta o usa las flechas"
+                  style={aimControlStyle}
+                  onPointerDown={handleJoystickPointerDown}
+                  onPointerMove={handleJoystickPointerMove}
+                  onPointerUp={handleJoystickPointerUp}
+                  onPointerCancel={handleJoystickPointerCancel}
+                  onKeyDown={handleJoystickKeyDown}
+                  onContextMenu={event => event.preventDefault()}
+                >
+                  <span className="cameraJoystickAxes" aria-hidden="true" />
+                  <span className="cameraAimVector" aria-hidden="true" />
+                  <span className="cameraJoystickThumb" aria-hidden="true"><Crosshair size={18} /></span>
+                </div>
+                <small>{joystickPosition.active ? joystickLabel : 'Punta objetivo'}</small>
+              </div>
             </div>
 
-            <div className="cameraPosePreview" style={joystickPoseStyle} aria-hidden="true">
-              <span>Orientación solicitada</span>
-              <CameraPose className="isPreview" />
-            </div>
-
-            <label className="cameraRollControl">
-              <span>
-                <b>Giro del eje Z</b>
-                <output>{Math.round(joystickVector.rollDegrees)}°</output>
-              </span>
-              <input
-                type="range"
-                min="-1"
-                max="1"
-                step="0.02"
-                value={joystickRoll}
-                aria-label="Giro axial de la cámara"
-                onPointerDown={handleRollStart}
-                onPointerUp={handleRollCommit}
-                onPointerCancel={cancelCameraDirection}
-                onKeyDown={handleRollStart}
-                onKeyUp={handleRollCommit}
-                onBlur={handleRollCommit}
-                onChange={handleRollChange}
-              />
-              <small><span>↶ Antihorario</span><span>Horario ↷</span></small>
-            </label>
-
-            <div className="cameraJoystickReadout" aria-live="polite">
-              <strong>{joystickPosition.active ? joystickLabel : 'Mueve el stick'}</strong>
-              <small>Stick: X/Y · deslizador: Z</small>
-            </div>
-
-            <button type="button" className="cameraDirectionCancel" onClick={cancelCameraDirection} disabled={!clientCommand}>
+            <button type="button" className="cameraDirectionCancel" onClick={cancelCameraDirection} disabled={!clientCommand && !clientMovement}>
               <Crosshair size={15} aria-hidden="true" />
               Cancelar indicación
             </button>
 
-            <p className={`cameraCommandStatus ${clientCommand?.status || ''}`} aria-live="polite">
-              {!clientCommand && 'La distancia al centro regula cuánto debe moverse.'}
-              {clientCommand?.status === 'preview' && `Ajustando: ${clientCommandLabel}`}
-              {clientCommand?.status === 'sent' && `Enviando: ${clientCommandLabel}…`}
-              {clientCommand?.status === 'active' && `El Local está siguiendo: ${clientCommandLabel}`}
-              {clientCommand?.status === 'completed' && 'Encuadre confirmado por el Local'}
-              {clientCommand?.status === 'error' && 'No se pudo enviar la indicación'}
-            </p>
+            <div className="cameraCommandStatuses" aria-live="polite">
+              <p className={`cameraCommandStatus ${clientMovement?.status || ''}`}>
+                {clientMovement ? `Movimiento: ${clientMovementLabel}` : 'Joystick: dirección para caminar.'}
+              </p>
+              <p className={`cameraCommandStatus ${clientCommand?.status || ''}`}>
+                {!clientCommand && 'Círculo: dirección para apuntar.'}
+                {clientCommand?.status === 'preview' && `Ajustando cámara: ${clientCommandLabel}`}
+                {clientCommand?.status === 'sent' && `Enviando cámara: ${clientCommandLabel}…`}
+                {clientCommand?.status === 'active' && `El Local está apuntando: ${clientCommandLabel}`}
+                {clientCommand?.status === 'completed' && 'Encuadre confirmado por el Local'}
+                {clientCommand?.status === 'error' && 'No se pudo enviar la indicación'}
+              </p>
+            </div>
           </section>
         )}
 
