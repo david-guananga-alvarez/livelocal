@@ -487,7 +487,7 @@
 .cameraDirectionPanel header span { color: #aab5c6; font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
 .cameraDirectionPanel header strong { font-size: 15px; }
 .cameraDirectionPanel header > button,
-.cameraGuidanceOverlay > button {
+.cameraGuidanceHeader > button {
   width: 30px;
   height: 30px;
   padding: 0;
@@ -522,10 +522,7 @@
 .cameraControlRequestActions { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .cameraControlRequestActions button { min-height: 40px; color: #dbe3ee; background: rgba(255, 255, 255, .09); border-radius: 12px; }
 .cameraControlRequestActions button.accept { color: #fff; background: #356ee8; }
-.cameraAngleLabel { display: block; margin-top: 10px; color: #8996aa; font-size: 10px; font-weight: 750; letter-spacing: .04em; text-transform: uppercase; }
-.cameraAngleSelector { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin: 5px 0 10px; padding: 4px; background: rgba(255, 255, 255, .06); border-radius: 12px; }
-.cameraAngleSelector button { min-height: 30px; padding: 4px 8px; color: #aeb9c9; background: transparent; border-radius: 9px; font-size: 11px; }
-.cameraAngleSelector button.active { color: #0d1b31; background: #fff; }
+.cameraControlIntro { margin: 7px 0 10px; color: #8e9bb0; font-size: 10px; line-height: 1.35; }
 .cameraJoystick {
   --joystick-x: 0px;
   --joystick-y: 0px;
@@ -556,6 +553,7 @@
 .cameraJoystickAxes::after { top: 50%; right: 12px; left: 12px; height: 1px; }
 .cameraJoystickThumb {
   position: absolute;
+  z-index: 3;
   top: 50%;
   left: 50%;
   display: grid;
@@ -573,30 +571,29 @@
 }
 .cameraJoystick.isActive .cameraJoystickThumb { transition: none; }
 .cameraControlPair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.cameraControlUnit { display: grid; justify-items: center; gap: 5px; min-width: 0; }
-.cameraControlUnit > span { color: #b9c9e8; font-size: 10px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
-.cameraControlUnit > small { min-height: 24px; color: #8996aa; font-size: 9px; line-height: 1.25; text-align: center; text-transform: capitalize; }
+.cameraControlUnit { display: grid; justify-items: center; gap: 6px; min-width: 0; padding: 8px 5px; background: rgba(255, 255, 255, .045); border: 1px solid rgba(151, 179, 241, .12); border-radius: 14px; }
+.cameraControlUnitTitle { display: flex; align-items: center; justify-self: stretch; gap: 5px; min-width: 0; color: #dbe6ff; font-size: 9px; font-weight: 800; }
+.cameraControlUnitTitle b { display: grid; flex: 0 0 auto; place-items: center; width: 18px; height: 18px; color: #0f2144; background: #a9c2ff; border-radius: 50%; font-size: 9px; }
+.cameraControlUnitTitle span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cameraControlUnit > strong { min-height: 22px; color: #e5edff; font-size: 10px; line-height: 1.15; text-align: center; text-transform: capitalize; }
+.cameraControlUnit > small { min-height: 24px; color: #8996aa; font-size: 8px; line-height: 1.25; text-align: center; }
+.cameraControlAxis { position: absolute; z-index: 1; color: rgba(210, 223, 252, .52); font-size: 7px; font-weight: 900; letter-spacing: .02em; line-height: 1; pointer-events: none; text-transform: uppercase; }
+.cameraControlAxis.isUp { top: 7px; left: 50%; transform: translateX(-50%); }
+.cameraControlAxis.isRight { top: 50%; right: 4px; transform: translateY(-50%); }
+.cameraControlAxis.isDown { bottom: 7px; left: 50%; transform: translateX(-50%); }
+.cameraControlAxis.isLeft { top: 50%; left: 4px; transform: translateY(-50%); }
 .cameraAimControl { background: radial-gradient(circle at center, rgba(72, 116, 220, .12) 0 10%, transparent 11%), radial-gradient(circle at center, rgba(255, 255, 255, .035) 0 66%, rgba(124, 164, 255, .2) 67% 68%, transparent 69%); }
 .cameraAimVector { position: absolute; z-index: 1; top: 50%; left: 50%; width: var(--aim-length); height: 3px; background: linear-gradient(90deg, #7fa6ff, #dbe7ff); border-radius: 3px; box-shadow: 0 0 8px rgba(101, 147, 255, .55); transform: rotate(var(--aim-angle)); transform-origin: 0 50%; pointer-events: none; }
 .cameraAimVector::after { position: absolute; top: 50%; right: -3px; width: 8px; height: 8px; content: ''; background: #fff; border-radius: 50%; box-shadow: 0 0 0 3px rgba(102, 148, 255, .3); transform: translateY(-50%); }
-.cameraCommandStatuses { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-top: 7px; }
 .cameraDirectionCancel { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; min-height: 32px; margin-top: 7px; color: #c5d3ea; background: rgba(255, 255, 255, .07); border-radius: 10px; font-size: 11px; }
 .cameraDirectionCancel:disabled { opacity: .38; }
-.cameraCommandStatus { min-height: 34px; margin: 0; padding: 5px; color: #aab5c6; background: rgba(255, 255, 255, .035); border-radius: 8px; font-size: 9px; line-height: 1.3; text-align: center; }
-.cameraCommandStatus.preview { color: #b9caff; }
-.cameraCommandStatus.active { color: #c5d7ff; }
-.cameraCommandStatus.completed { color: #92efb4; }
 
 .cameraGuidanceOverlay {
   position: absolute;
   z-index: 7;
   left: 50%;
   top: 50%;
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 12px;
-  width: min(520px, calc(100% - 32px));
+  width: min(470px, calc(100% - 32px));
   padding: 12px;
   color: #fff;
   background: rgba(7, 13, 24, .86);
@@ -606,7 +603,15 @@
   transform: translate(-50%, -50%);
   backdrop-filter: blur(14px);
 }
-.cameraGuidanceVisuals { display: grid; grid-template-columns: repeat(2, 76px); gap: 8px; }
+.cameraGuidanceHeader { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 9px; }
+.cameraGuidanceHeader > span { color: #a8bce8; font-size: 10px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
+.cameraGuidanceSteps { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+.cameraInstructionCard { display: grid; justify-items: center; gap: 6px; min-width: 0; padding: 9px 7px; background: rgba(255, 255, 255, .035); border: 1px solid rgba(255, 255, 255, .07); border-radius: 15px; opacity: .58; }
+.cameraInstructionCard.isActive { background: rgba(55, 92, 181, .13); border-color: rgba(123, 158, 239, .24); opacity: 1; }
+.cameraInstructionCard header { display: flex; align-items: center; justify-self: stretch; gap: 6px; color: #e1eaff; font-size: 10px; font-weight: 900; text-transform: uppercase; }
+.cameraInstructionCard header b { display: grid; place-items: center; width: 20px; height: 20px; color: #10234a; background: #abc3ff; border-radius: 50%; font-size: 10px; }
+.cameraInstructionCard > strong { min-height: 24px; color: #fff; font-size: 12px; line-height: 1.15; text-align: center; text-transform: capitalize; }
+.cameraInstructionCard > small { min-height: 25px; color: #aebbd1; font-size: 9px; line-height: 1.3; text-align: center; }
 .cameraMovementGuide,
 .cameraGuidanceDial { position: relative; display: grid; place-items: center; width: 76px; height: 76px; color: #8fa7d7; background: rgba(13, 25, 48, .92); border: 1px solid rgba(147, 174, 238, .2); border-radius: 50%; }
 .cameraMovementGuide > span { position: relative; width: 58px; height: 58px; background: repeating-linear-gradient(0deg, transparent 0 9px, rgba(132, 158, 215, .1) 10px), repeating-linear-gradient(90deg, transparent 0 9px, rgba(132, 158, 215, .1) 10px); border: 1px solid rgba(147, 174, 238, .14); border-radius: 50%; }
@@ -621,8 +626,6 @@
     conic-gradient(#6e9cff var(--guidance-progress), rgba(255, 255, 255, .12) 0);
   filter: drop-shadow(0 8px 16px rgba(50, 101, 234, .2));
 }
-.cameraMovementGuide > small,
-.cameraGuidanceDial > small { position: absolute; bottom: -18px; color: #8494b2; font-size: 8px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
 .cameraGuidanceMotion { position: relative; width: 58px; height: 58px; background: radial-gradient(circle, rgba(255, 255, 255, .08) 0 3px, transparent 4px); border: 1px solid rgba(182, 202, 248, .18); border-radius: 50%; }
 .cameraGuidanceMotion::before,
 .cameraGuidanceMotion::after { position: absolute; content: ''; background: rgba(182, 202, 248, .12); }
@@ -635,6 +638,9 @@
 .cameraGuidanceSensorVector { z-index: 2; width: var(--sensor-length); background: #fff; box-shadow: 0 0 8px rgba(255, 255, 255, .58); opacity: .25; transform: rotate(var(--sensor-angle)); transition: width 90ms linear, transform 90ms linear, opacity 160ms ease; }
 .cameraGuidanceSensorVector::after { background: #fff; box-shadow: 0 0 0 3px rgba(255, 255, 255, .2); }
 .cameraGuidanceSensorVector.isDetected { opacity: 1; }
+.cameraVectorLegend { display: flex; justify-content: center; gap: 8px; color: #8494b2; font-size: 8px; }
+.cameraVectorLegend span:first-child { color: #7fa2ff; }
+.cameraVectorLegend span:last-child { color: #fff; }
 .cameraGuidanceOverlay.isComplete { border-color: rgba(92, 226, 139, .5); }
 .cameraGuidanceOverlay.isComplete .cameraGuidanceDial {
   color: #d9ffe8;
@@ -642,10 +648,6 @@
     radial-gradient(circle at center, #123121 58%, transparent 60%),
     conic-gradient(#42d879 360deg, rgba(255, 255, 255, .12) 0);
 }
-.cameraGuidanceCopy { display: grid; gap: 2px; min-width: 0; }
-.cameraGuidanceCopy span { color: #9fb7ee; font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
-.cameraGuidanceCopy strong { overflow: hidden; font-size: clamp(15px, 2.5vw, 21px); line-height: 1.15; text-overflow: ellipsis; }
-.cameraGuidanceCopy small { color: #bec8d8; font-size: 11px; }
 
 .videoError {
   position: absolute;
@@ -820,15 +822,15 @@
   .callActions { bottom: calc(10px + env(safe-area-inset-bottom)); }
   .videoControlButton { width: 44px; height: 44px; justify-content: center; padding: 0; }
   .videoControlButton span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-  .cameraDirectionPanel { right: 10px; bottom: calc(68px + env(safe-area-inset-bottom)); width: min(300px, calc(100% - 20px)); }
-  .cameraGuidanceOverlay { grid-template-columns: 132px minmax(0, 1fr) 30px; gap: 7px; width: calc(100% - 20px); padding: 8px; border-radius: 18px; }
-  .cameraGuidanceVisuals { grid-template-columns: repeat(2, 62px); gap: 6px; }
+  .cameraDirectionPanel { right: 10px; bottom: calc(68px + env(safe-area-inset-bottom)); width: min(300px, calc(100% - 20px)); max-height: calc(100% - 86px); overflow-y: auto; }
+  .cameraGuidanceOverlay { width: calc(100% - 20px); padding: 8px; border-radius: 18px; }
+  .cameraGuidanceSteps { gap: 6px; }
+  .cameraInstructionCard { padding: 7px 5px; }
   .cameraMovementGuide,
   .cameraGuidanceDial { width: 62px; height: 62px; }
   .cameraMovementGuide > span,
   .cameraGuidanceMotion { transform: scale(.78); }
   .cameraGuidanceDial svg { width: 36px; height: 36px; }
-  .cameraGuidanceCopy strong { font-size: 16px; }
   .videoError { bottom: 68px; }
   .videoRoom.isLobby .videoError { bottom: 12px; }
   .chatHeader { min-height: 56px; padding: 8px 12px; }

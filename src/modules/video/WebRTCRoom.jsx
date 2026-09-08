@@ -48,25 +48,27 @@ function normalizeAngle(value) {
   return ((value + 540) % 360) - 180;
 }
 
-function describeCameraVector(yawDegrees, pitchDegrees, includeDegrees = true) {
+function describeCameraVector(yawDegrees, pitchDegrees) {
   const parts = [];
   const yaw = Number(yawDegrees) || 0;
   const pitch = Number(pitchDegrees) || 0;
 
   if (Math.abs(yaw) >= 1) {
-    parts.push(`${yaw > 0 ? 'derecha' : 'izquierda'}${includeDegrees ? ` ${Math.round(Math.abs(yaw))}°` : ''}`);
+    parts.push(yaw > 0 ? 'derecha' : 'izquierda');
   }
   if (Math.abs(pitch) >= 1) {
-    parts.push(`${pitch > 0 ? 'arriba' : 'abajo'}${includeDegrees ? ` ${Math.round(Math.abs(pitch))}°` : ''}`);
+    parts.push(pitch > 0 ? 'arriba' : 'abajo');
   }
   return parts.length ? parts.join(' · ') : 'centro';
 }
 
 function describeMovementVector(x, y) {
   const parts = [];
+  const magnitude = Math.hypot(x, y);
+  const amount = magnitude > 0.72 ? 'varios pasos' : 'un paso';
 
-  if (Math.abs(y) >= JOYSTICK_DEAD_ZONE) parts.push(y < 0 ? 'avanza' : 'retrocede');
-  if (Math.abs(x) >= JOYSTICK_DEAD_ZONE) parts.push(x > 0 ? 'a la derecha' : 'a la izquierda');
+  if (Math.abs(y) >= 0.3) parts.push(y < 0 ? `avanza ${amount}` : `retrocede ${amount}`);
+  if (Math.abs(x) >= 0.3) parts.push(`${amount} a la ${x > 0 ? 'derecha' : 'izquierda'}`);
 
   return parts.length ? parts.join(' · ') : 'quieto';
 }
@@ -142,7 +144,7 @@ export default function WebRTCRoom({ roomId, role, isActive = true }) {
   const [activeCommand, setActiveCommand] = useState(null);
   const [activeMovement, setActiveMovement] = useState(null);
   const [guidanceProgress, setGuidanceProgress] = useState(0);
-  const [controlAngle, setControlAngle] = useState(30);
+  const controlAngle = 30;
   const [controlPanelOpen, setControlPanelOpen] = useState(false);
   const [clientCommand, setClientCommand] = useState(null);
   const [clientMovement, setClientMovement] = useState(null);
@@ -1588,47 +1590,50 @@ export default function WebRTCRoom({ roomId, role, isActive = true }) {
           {started && activeView !== 'remote' && <button type="button" className="videoFocusButton" onClick={() => setActiveView('remote')}>Ver en grande</button>}
           {role === 'Local' && (activeCommand || activeMovement) && (
             <div className={`cameraGuidanceOverlay ${activeCommand?.completed ? 'isComplete' : ''}`} role="status" aria-live="polite">
-              <div className="cameraGuidanceVisuals" aria-hidden="true">
-                <div className={`cameraMovementGuide ${activeMovement ? 'isActive' : ''}`} style={movementGuideStyle}>
-                  <span><i /></span>
-                  <small>Plano</small>
-                </div>
-                <div className="cameraGuidanceDial" style={guidanceStyle}>
-                  {activeCommand?.completed
-                    ? <Check size={36} />
-                    : activeCommand
-                      ? (
-                        <span className="cameraGuidanceMotion">
-                          <i className="cameraGuidanceTargetVector" />
-                          <i className={`cameraGuidanceSensorVector ${orientationDetected ? 'isDetected' : ''}`} />
-                        </span>
-                      )
-                      : <Crosshair size={26} />}
-                  <small>Cámara</small>
-                </div>
+              <div className="cameraGuidanceHeader">
+                <span>Guía del Cliente</span>
+                <button type="button" onClick={dismissCameraGuidance} aria-label="Cerrar indicación">
+                  <X size={18} aria-hidden="true" />
+                </button>
               </div>
-              <div className="cameraGuidanceCopy">
-                <span>{activeCommand?.completed ? 'Encuadre alcanzado' : 'Instrucción del Cliente'}</span>
-                <strong>
-                  {activeMovement && `Camina: ${activeMovementLabel}`}
-                  {activeMovement && activeCommand && ' · '}
-                  {activeCommand && (activeCommand.completed ? 'Mantén la cámara' : `Apunta: ${activeCommandLabel}`)}
-                </strong>
-                <small>
-                  {activeCommand?.completed
-                    ? 'El Cliente ya ha recibido la confirmación.'
-                    : activeCommand && !activeCommand.final
-                      ? 'El Cliente está ajustando la punta objetivo…'
-                      : activeCommand && orientationDetected
-                        ? `${Math.round(guidanceProgress * 100)}% · acerca la punta blanca a la azul`
+              <div className="cameraGuidanceSteps">
+                <div className={`cameraInstructionCard ${activeMovement ? 'isActive' : ''}`}>
+                  <header><b>1</b><span>Muévete</span></header>
+                  <div className={`cameraMovementGuide ${activeMovement ? 'isActive' : ''}`} style={movementGuideStyle} aria-hidden="true">
+                    <span><i /></span>
+                  </div>
+                  <strong>{activeMovement ? activeMovementLabel : 'Mantén tu posición'}</strong>
+                  <small>{activeMovement ? 'Sigue la flecha con tu cuerpo.' : 'No necesitas desplazarte.'}</small>
+                </div>
+                <div className={`cameraInstructionCard ${activeCommand ? 'isActive' : ''}`}>
+                  <header><b>2</b><span>Apunta la cámara</span></header>
+                  <div className="cameraGuidanceDial" style={guidanceStyle} aria-hidden="true">
+                    {activeCommand?.completed
+                      ? <Check size={36} />
+                      : activeCommand
+                        ? (
+                          <span className="cameraGuidanceMotion">
+                            <i className="cameraGuidanceTargetVector" />
+                            <i className={`cameraGuidanceSensorVector ${orientationDetected ? 'isDetected' : ''}`} />
+                          </span>
+                        )
+                        : <Crosshair size={26} />}
+                  </div>
+                  <strong>{activeCommand?.completed ? 'Posición correcta' : activeCommand ? activeCommandLabel : 'Mantén el encuadre'}</strong>
+                  <small>
+                    {activeCommand?.completed
+                      ? 'Mantén el móvil así.'
+                      : orientationDetected && activeCommand
+                        ? 'Lleva la punta blanca hasta la azul.'
                         : activeCommand
-                          ? `Mueve el móvil hacia ${activeCommandLabel}`
-                          : 'Sigue la flecha sobre el plano horizontal.'}
-                </small>
+                          ? 'Mueve el móvil en la dirección indicada.'
+                          : 'No necesitas girar la cámara.'}
+                  </small>
+                  {activeCommand && !activeCommand.completed && (
+                    <div className="cameraVectorLegend" aria-hidden="true"><span>● Objetivo</span><span>● Posición real</span></div>
+                  )}
+                </div>
               </div>
-              <button type="button" onClick={dismissCameraGuidance} aria-label="Cerrar indicación">
-                <X size={18} aria-hidden="true" />
-              </button>
             </div>
           )}
         </div>
@@ -1638,32 +1643,19 @@ export default function WebRTCRoom({ roomId, role, isActive = true }) {
           <section className="cameraDirectionPanel" aria-label="Dirección remota de la cámara">
             <header>
               <div>
-                <span>Dirección asistida</span>
-                <strong>Guía al Local</strong>
+                <span>Control remoto</span>
+                <strong>Mueve y apunta</strong>
               </div>
               <button type="button" onClick={() => setControlPanelOpen(false)} aria-label="Cerrar controles">
                 <X size={17} aria-hidden="true" />
               </button>
             </header>
 
-            <span className="cameraAngleLabel">Giro máximo de la cámara</span>
-            <div className="cameraAngleSelector" role="group" aria-label="Amplitud máxima del movimiento">
-              {[15, 30, 45].map(angle => (
-                <button
-                  key={angle}
-                  type="button"
-                  className={controlAngle === angle ? 'active' : ''}
-                  aria-pressed={controlAngle === angle}
-                  onClick={() => setControlAngle(angle)}
-                >
-                  {angle}°
-                </button>
-              ))}
-            </div>
+            <p className="cameraControlIntro">Dos controles independientes, como un mando PTZ sencillo.</p>
 
             <div className="cameraControlPair">
               <div className="cameraControlUnit">
-                <span>Movimiento</span>
+                <div className="cameraControlUnitTitle"><b>1</b><span>Mover al Local</span></div>
                 <div
                   ref={movementJoystickRef}
                   className={`cameraJoystick movementJoystick ${movementPosition.active ? 'isActive' : ''}`}
@@ -1679,13 +1671,18 @@ export default function WebRTCRoom({ roomId, role, isActive = true }) {
                   onContextMenu={event => event.preventDefault()}
                 >
                   <span className="cameraJoystickAxes" aria-hidden="true" />
+                  <span className="cameraControlAxis isUp" aria-hidden="true">Avanza</span>
+                  <span className="cameraControlAxis isRight" aria-hidden="true">Dcha.</span>
+                  <span className="cameraControlAxis isDown" aria-hidden="true">Atrás</span>
+                  <span className="cameraControlAxis isLeft" aria-hidden="true">Izq.</span>
                   <span className="cameraJoystickThumb" aria-hidden="true"><Gamepad2 size={18} /></span>
                 </div>
-                <small>{movementPosition.active ? movementLabel : 'Plano horizontal'}</small>
+                <strong>{movementPosition.active ? movementLabel : clientMovement ? clientMovementLabel : 'Sin movimiento'}</strong>
+                <small>Indica hacia dónde debe caminar.</small>
               </div>
 
               <div className="cameraControlUnit">
-                <span>Encuadre</span>
+                <div className="cameraControlUnitTitle"><b>2</b><span>Apuntar cámara</span></div>
                 <div
                   ref={joystickRef}
                   className={`cameraJoystick cameraAimControl ${joystickPosition.active ? 'isActive' : ''}`}
@@ -1701,31 +1698,22 @@ export default function WebRTCRoom({ roomId, role, isActive = true }) {
                   onContextMenu={event => event.preventDefault()}
                 >
                   <span className="cameraJoystickAxes" aria-hidden="true" />
+                  <span className="cameraControlAxis isUp" aria-hidden="true">Arriba</span>
+                  <span className="cameraControlAxis isRight" aria-hidden="true">Dcha.</span>
+                  <span className="cameraControlAxis isDown" aria-hidden="true">Abajo</span>
+                  <span className="cameraControlAxis isLeft" aria-hidden="true">Izq.</span>
                   <span className="cameraAimVector" aria-hidden="true" />
                   <span className="cameraJoystickThumb" aria-hidden="true"><Crosshair size={18} /></span>
                 </div>
-                <small>{joystickPosition.active ? joystickLabel : 'Punta objetivo'}</small>
+                <strong>{joystickPosition.active ? joystickLabel : clientCommand ? clientCommandLabel : 'Sin giro'}</strong>
+                <small>Indica hacia dónde debe apuntar.</small>
               </div>
             </div>
 
             <button type="button" className="cameraDirectionCancel" onClick={cancelCameraDirection} disabled={!clientCommand && !clientMovement}>
               <Crosshair size={15} aria-hidden="true" />
-              Cancelar indicación
+              Borrar instrucciones
             </button>
-
-            <div className="cameraCommandStatuses" aria-live="polite">
-              <p className={`cameraCommandStatus ${clientMovement?.status || ''}`}>
-                {clientMovement ? `Movimiento: ${clientMovementLabel}` : 'Joystick: dirección para caminar.'}
-              </p>
-              <p className={`cameraCommandStatus ${clientCommand?.status || ''}`}>
-                {!clientCommand && 'Círculo: dirección para apuntar.'}
-                {clientCommand?.status === 'preview' && `Ajustando cámara: ${clientCommandLabel}`}
-                {clientCommand?.status === 'sent' && `Enviando cámara: ${clientCommandLabel}…`}
-                {clientCommand?.status === 'active' && `El Local está apuntando: ${clientCommandLabel}`}
-                {clientCommand?.status === 'completed' && 'Encuadre confirmado por el Local'}
-                {clientCommand?.status === 'error' && 'No se pudo enviar la indicación'}
-              </p>
-            </div>
           </section>
         )}
 
